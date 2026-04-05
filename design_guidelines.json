@@ -1,0 +1,160 @@
+{
+  "theme": "LIGHT",
+  "archetype": "1 (Organic & Earthy)",
+  "global_design_principles": [
+    "Medical Trust through Color: Use the deep forest green as the anchor, soft sage as the supportive tint, and off-white as the canvas to evoke a natural, trustworthy, and calm medical environment.",
+    "Bento Grid for Mobile: Dashboard cards must not just float; they should act as a tightly packed grid of actionable widgets with generous internal padding.",
+    "Tactile Inputs: The OTP/Coupon boxes and form fields should have substantial height (min 56px) and subtle border changes on focus, offering physical 'weight' to the interaction.",
+    "Generous Negative Space: Avoid clutter. Text and cards should have ample breathing room."
+  ],
+  "colors": {
+    "primary": "#2E7D32",
+    "primary_light": "#4CAF50",
+    "accent": "#81C784",
+    "background": "#FDFBF7",
+    "surface": "#FFFFFF",
+    "surface_secondary": "#E8F5E9",
+    "text_primary": "#0A1F10",
+    "text_secondary": "#4A5D4E",
+    "border": "#E0E8E1",
+    "success": "#2E7D32",
+    "error": "#D32F2F"
+  },
+  "typography": {
+    "font_family_heading": "System (Platform-default bold/heavy)",
+    "font_family_body": "System (Platform-default regular)",
+    "scale": {
+      "h1": { "fontSize": 32, "fontWeight": "800", "letterSpacing": -1 },
+      "h2": { "fontSize": 24, "fontWeight": "700", "letterSpacing": -0.5 },
+      "h3": { "fontSize": 18, "fontWeight": "600", "letterSpacing": 0 },
+      "body": { "fontSize": 16, "fontWeight": "400", "lineHeight": 24 },
+      "label": { "fontSize": 14, "fontWeight": "600", "letterSpacing": 0.5, "textTransform": "uppercase" },
+      "caption": { "fontSize": 12, "fontWeight": "500", "color": "#4A5D4E" }
+    }
+  },
+  "spacing": {
+    "xs": 4,
+    "sm": 8,
+    "md": 16,
+    "lg": 24,
+    "xl": 32,
+    "2xl": 48
+  },
+  "radii": {
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "full": 9999
+  },
+  "shadows": {
+    "card": {
+      "shadowColor": "#0A1F10",
+      "shadowOffset": { "width": 0, "height": 4 },
+      "shadowOpacity": 0.05,
+      "shadowRadius": 12,
+      "elevation": 2
+    }
+  },
+  "components": {
+    "SplashScreen": {
+      "layout": "Flex center, full screen, background color #FDFBF7",
+      "logo_container": "Circle with background #E8F5E9, padding 24px, border radius 9999px",
+      "logo_emoji": "🐾, font size 64px",
+      "brand_text": "text h1, color #2E7D32, margin-top 24px"
+    },
+    "LoginScreen": {
+      "layout": "SafeAreaView, padding horizontal 24px",
+      "form_container": "Margin top 48px, gap 16px",
+      "input": {
+        "height": 56,
+        "borderRadius": 12,
+        "borderWidth": 1,
+        "borderColor": "#E0E8E1",
+        "backgroundColor": "#FFFFFF",
+        "paddingHorizontal": 16,
+        "fontSize": 16,
+        "color": "#0A1F10"
+      },
+      "button": {
+        "height": 56,
+        "backgroundColor": "#2E7D32",
+        "borderRadius": 16,
+        "justifyContent": "center",
+        "alignItems": "center",
+        "marginTop": 24
+      },
+      "button_text": { "color": "#FFFFFF", "fontSize": 16, "fontWeight": "700" }
+    },
+    "RegistrationScreen": {
+      "layout": "SafeAreaView + ScrollView (keyboard-aware ideally), padding 24px",
+      "dropdown_trigger": {
+        "height": 56,
+        "borderRadius": 12,
+        "borderWidth": 1,
+        "borderColor": "#E0E8E1",
+        "backgroundColor": "#FFFFFF",
+        "paddingHorizontal": 16,
+        "flexDirection": "row",
+        "justifyContent": "space-between",
+        "alignItems": "center"
+      }
+    },
+    "CouponScreen": {
+      "instruction_text": "text h3, text align center, color #4A5D4E, margin bottom 32px",
+      "otp_container": "flex-row, justify-between, margin bottom 32px, flex wrap for 8 items",
+      "otp_box": {
+        "width": 40,
+        "height": 56,
+        "borderWidth": 2,
+        "borderColor": "#E0E8E1",
+        "borderRadius": 12,
+        "backgroundColor": "#FFFFFF",
+        "textAlign": "center",
+        "fontSize": 20,
+        "fontWeight": "800",
+        "color": "#2E7D32"
+      },
+      "otp_box_focused": { "borderColor": "#4CAF50", "backgroundColor": "#E8F5E9" }
+    },
+    "DashboardScreen": {
+      "header": {
+        "flexDirection": "row",
+        "justifyContent": "space-between",
+        "alignItems": "center",
+        "paddingHorizontal": 24,
+        "paddingTop": 16,
+        "paddingBottom": 24
+      },
+      "avatar": { "width": 48, "height": 48, "borderRadius": 24, "backgroundColor": "#E8F5E9", "justifyContent": "center", "alignItems": "center" },
+      "grid_container": { "flexDirection": "row", "flexWrap": "wrap", "justifyContent": "space-between", "paddingHorizontal": 24 },
+      "stat_card": {
+        "width": "48%",
+        "aspectRatio": 1,
+        "backgroundColor": "#FFFFFF",
+        "borderRadius": 20,
+        "padding": 16,
+        "marginBottom": 16,
+        "justifyContent": "space-between"
+      },
+      "card_icon_wrapper": { "width": 40, "height": 40, "borderRadius": 20, "backgroundColor": "#E8F5E9", "justifyContent": "center", "alignItems": "center" },
+      "card_number": { "fontSize": 28, "fontWeight": "800", "color": "#0A1F10" },
+      "card_title": { "fontSize": 14, "fontWeight": "600", "color": "#4A5D4E", "marginTop": 4 }
+    }
+  },
+  "testing": {
+    "attributes": [
+      "All buttons, inputs, and touchable elements MUST include testID (React Native equivalent of data-testid).",
+      "Format: kebab-case, e.g., testID='login-submit-button', testID='coupon-input-0'"
+    ]
+  },
+  "instructions_to_main_agent": [
+    "CRITICAL: Use standard React Native components ONLY (View, Text, TouchableOpacity, TextInput, ScrollView, SafeAreaView, StyleSheet). Do not use Tailwind/HTML elements since this is an Expo App.",
+    "Use standard StyleSheet.create for styling, translating the provided design system into React Native styles.",
+    "For the logo, use the paw print emoji 🐾 wrapped in a Text element as requested in the problem statement.",
+    "For the dashboard icons, you can use Lucide-react-native or vector-icons if available, or text emojis if icons are not installed.",
+    "The 8-digit coupon input must be split into 8 separate aesthetic boxes.",
+    "Do NOT use HTML elements like <div> or <span>.",
+    "Keep touch targets at least 48px (min 44px requested, but use 56px for inputs/buttons for E1 generocity)."
+  ]
+}
