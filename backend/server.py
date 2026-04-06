@@ -5,145 +5,113 @@ from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request
 from fastapi.responses import PlainTextResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from bson import ObjectId
-from typing import Optional, List, Annotated
-import os
-import logging
-import bcrypt
-import jwt
-import secrets
-import string
+from typing import Optional, List
+import os, logging, bcrypt, jwt, secrets
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from india_locations import get_states, get_districts, get_taluks
 
 ROOT_DIR = Path(__file__).parent
-
-# MongoDB
 mongo_url = os.environ["MONGO_URL"]
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ["DB_NAME"]]
 
 app = FastAPI(title="Animitra API")
 api_router = APIRouter(prefix="/api")
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ─────────────────────────── helpers ──────────────────────────────────────────
-
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRY_DAYS = 30
 COUPON_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$"
 COUPON_LENGTH = 8
 INITIAL_COUPON_COUNT = 10000
+PAYMENT_MODES = ["Cash", "GPay", "Online", "Cheque", "Other"]
 
+# ─────────────────────────── auth helpers ─────────────────────────────────────
 
-def get_jwt_secret() -> str:
-    return os.environ["JWT_SECRET"]
-
-
-def hash_password(password: str) -> str:
-    salt = bcrypt.gensalt()
-    return bcrypt.hashpw(password.encode(), salt).decode()
-
+def hash_password(p: str) -> str:
+    return bcrypt.hashpw(p.encode(), bcrypt.gensalt()).decode()
 
 def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode(), hashed.encode())
 
-
-def create_token(user_id: str, mobile: str, role: str = "vet") -> str:
-    payload = {
-        "sub": user_id,
-        "mobile": mobile,
-        "role": role,
-        "exp": datetime.now(timezone.utc) + timedelta(days=JWT_EXPIRY_DAYS),
-    }
-    return jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALGORITHM)
-
+def create_token(uid: str, mobile: str, role: str = "vet") -> str:
+    return jwt.encode(
+        {"sub": uid, "mobile": mobile, "role": role,
+         "exp": datetime.now(timezone.utc) + timedelta(days=30)},
+        os.environ["JWT_SECRET"], algorithm=JWT_ALGORITHM
+    )
 
 async def get_current_user(request: Request):
-    token = None
     auth = request.headers.get("Authorization", "")
-    if auth.startswith("Bearer "):
-        token = auth[7:]
+    token = auth[7:] if auth.startswith("Bearer ") else None
     if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+        raise HTTPException(401, "Not authenticated")
     try:
-        payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(token, os.environ["JWT_SECRET"], algorithms=[JWT_ALGORITHM])
         user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
         if not user:
-            raise HTTPException(status_code=401, detail="User not found")
+            raise HTTPException(401, "User not found")
         user["id"] = str(user.pop("_id"))
         user.pop("password_hash", None)
         return user
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
+        raise HTTPException(401, "Token expired")
     except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
+        raise HTTPException(401, "Invalid token")
 
 async def get_admin_user(request: Request):
     user = await get_current_user(request)
     if user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
+        raise HTTPException(403, "Admin access required")
     return user
 
+# ─────────────────────────── case helpers ─────────────────────────────────────
 
-# ──────────────────────────── startup ─────────────────────────────────────────
+def fmt_case(c: dict) -> dict:
+    vd = c.get("visit_date") or c.get("created_at")
+    return {
+        "id": str(c["_id"]),
+        "owner_name": c["owner_name"],
+        "mobile": c["mobile"],
+        "village_name": c.get("village_name", ""),
+        "animal_type": c["animal_type"],
+        "visit_reason": c["visit_reason"],
+        "visit_date": vd.isoformat() if vd else datetime.now(timezone.utc).isoformat(),
+        "amount": c.get("amount", 0),
+        "notes": c.get("notes", ""),
+        "status": c.get("status", "active"),
+        "is_paid": c.get("is_paid", False),
+        "payment_mode": c.get("payment_mode"),
+        "paid_amount": c.get("paid_amount", 0),
+        "paid_at": c["paid_at"].isoformat() if c.get("paid_at") else None,
+        "follow_up_date": c["follow_up_date"].isoformat() if c.get("follow_up_date") else None,
+        "forwarded_to_name": c.get("forwarded_to_name", ""),
+        "forwarded_from": c.get("forwarded_from", ""),
+        "created_at": c["created_at"].isoformat(),
+    }
 
-async def seed_admin():
-    admin_mobile = os.environ.get("ADMIN_MOBILE", "9999999999")
-    admin_password = os.environ.get("ADMIN_PASSWORD", "Admin@1234")
-    existing = await db.users.find_one({"mobile": admin_mobile})
-    if existing is None:
-        await db.users.insert_one({
-            "name": "Admin",
-            "reg_no": "ADMIN001",
-            "mobile": admin_mobile,
-            "password_hash": hash_password(admin_password),
-            "state": "Tamil Nadu",
-            "district": "Chennai",
-            "taluk": "Anna Nagar",
-            "role": "admin",
-            "is_activated": True,
-            "coupon_code": None,
-            "created_at": datetime.now(timezone.utc),
-        })
-        logger.info("Admin user seeded")
-    elif not verify_password(admin_password, existing["password_hash"]):
-        await db.users.update_one(
-            {"mobile": admin_mobile},
-            {"$set": {"password_hash": hash_password(admin_password)}}
-        )
+async def run_auto_pending(vet_id: str):
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    await db.cases.update_many(
+        {"vet_id": vet_id, "status": {"$in": ["active", "upcoming"]}, "visit_date": {"$lt": today_start}},
+        {"$set": {"status": "pending", "updated_at": datetime.now(timezone.utc)}}
+    )
 
+def parse_date(date_str: Optional[str]) -> Optional[datetime]:
+    if not date_str:
+        return None
+    try:
+        d = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        if d.tzinfo is None:
+            d = d.replace(tzinfo=timezone.utc)
+        return d.replace(hour=0, minute=0, second=0, microsecond=0)
+    except Exception:
+        return None
 
-async def seed_coupons():
-    count = await db.coupons.count_documents({})
-    if count >= 100:
-        return
-    logger.info("Generating initial coupons...")
-    existing_codes = set(await db.coupons.distinct("code"))
-    coupons = []
-    attempts = 0
-    needed = INITIAL_COUPON_COUNT - count
-    while len(coupons) < needed and attempts < needed * 5:
-        code = "".join(secrets.choice(COUPON_CHARS) for _ in range(COUPON_LENGTH))
-        if code not in existing_codes:
-            existing_codes.add(code)
-            coupons.append({
-                "code": code,
-                "is_activated": False,
-                "activated_by": None,
-                "activated_at": None,
-                "created_at": datetime.now(timezone.utc),
-            })
-        attempts += 1
-    if coupons:
-        await db.coupons.insert_many(coupons)
-        logger.info(f"Generated {len(coupons)} coupons")
-
+# ─────────────────────────── startup ──────────────────────────────────────────
 
 @app.on_event("startup")
 async def startup():
@@ -154,439 +122,466 @@ async def startup():
     await seed_demo_vet()
     write_test_credentials()
 
+async def seed_admin():
+    mob = os.environ.get("ADMIN_MOBILE", "9999999999")
+    pwd = os.environ.get("ADMIN_PASSWORD", "Admin@1234")
+    ex = await db.users.find_one({"mobile": mob})
+    if ex is None:
+        await db.users.insert_one({
+            "name": "Admin", "reg_no": "ADMIN001", "mobile": mob,
+            "password_hash": hash_password(pwd), "state": "Tamil Nadu",
+            "district": "Chennai", "taluk": "Anna Nagar",
+            "role": "admin", "is_activated": True, "coupon_code": None,
+            "created_at": datetime.now(timezone.utc),
+        })
+    elif not verify_password(pwd, ex["password_hash"]):
+        await db.users.update_one({"mobile": mob}, {"$set": {"password_hash": hash_password(pwd)}})
+
+async def seed_coupons():
+    if await db.coupons.count_documents({}) >= 100:
+        return
+    existing = set(await db.coupons.distinct("code"))
+    coupons, attempts = [], 0
+    while len(coupons) < INITIAL_COUPON_COUNT and attempts < INITIAL_COUPON_COUNT * 5:
+        code = "".join(secrets.choice(COUPON_CHARS) for _ in range(COUPON_LENGTH))
+        if code not in existing:
+            existing.add(code)
+            coupons.append({"code": code, "is_activated": False, "activated_by": None,
+                            "activated_at": None, "created_at": datetime.now(timezone.utc)})
+        attempts += 1
+    if coupons:
+        await db.coupons.insert_many(coupons)
+        logger.info(f"Generated {len(coupons)} coupons")
 
 async def seed_demo_vet():
     demo_mobile = "1234567890"
-    demo_password = "Demo@123"
-    existing = await db.users.find_one({"mobile": demo_mobile})
-    if existing is None:
+    demo_pwd = "Demo@123"
+    ex = await db.users.find_one({"mobile": demo_mobile})
+    if ex is None:
         result = await db.users.insert_one({
-            "name": "Demo Vet",
-            "reg_no": "TN/VCI/DEMO01",
-            "mobile": demo_mobile,
-            "password_hash": hash_password(demo_password),
-            "state": "Tamil Nadu",
-            "district": "Coimbatore",
-            "taluk": "Coimbatore North",
-            "role": "vet",
-            "is_activated": True,
-            "coupon_code": "DEMO0001",
+            "name": "Demo Vet", "reg_no": "TN/VCI/DEMO01",
+            "mobile": demo_mobile, "password_hash": hash_password(demo_pwd),
+            "state": "Tamil Nadu", "district": "Coimbatore", "taluk": "Coimbatore North",
+            "role": "vet", "is_activated": True, "coupon_code": "DEMO0001",
             "created_at": datetime.now(timezone.utc),
         })
-        vet_id = str(result.inserted_id)
-        logger.info("Demo vet seeded — seeding sample cases...")
-        await _seed_demo_cases(vet_id)
+        await _seed_demo_cases(str(result.inserted_id))
     else:
-        # Make sure demo cases exist
-        case_count = await db.cases.count_documents({"vet_id": str(existing["_id"])})
-        if case_count == 0:
-            await _seed_demo_cases(str(existing["_id"]))
-
+        if await db.cases.count_documents({"vet_id": str(ex["_id"])}) == 0:
+            await _seed_demo_cases(str(ex["_id"]))
 
 async def _seed_demo_cases(vet_id: str):
     now = datetime.now(timezone.utc)
-    today = now.replace(hour=9, minute=0, second=0, microsecond=0)
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    tomorrow = today + timedelta(days=1)
+    day3 = today + timedelta(days=3)
+    day5 = today + timedelta(days=5)
 
-    sample_cases = [
-        # Today - paid closed
-        {"owner_name": "Arjun Sharma", "mobile": "9811223344", "animal_type": "Dog",
-         "visit_reason": "Vaccination", "amount": 800.0, "status": "closed",
-         "is_paid": True, "paid_at": today, "created_at": today},
-        # Today - paid closed
-        {"owner_name": "Priya Nair", "mobile": "9922334455", "animal_type": "Cat",
-         "visit_reason": "Check-up", "amount": 500.0, "status": "closed",
-         "is_paid": True, "paid_at": today.replace(hour=11), "created_at": today.replace(hour=11)},
-        # Today - pending (not paid)
-        {"owner_name": "Ramesh Kumar", "mobile": "9733445566", "animal_type": "Cow",
-         "visit_reason": "Treatment", "amount": 1200.0, "status": "pending",
-         "is_paid": False, "paid_at": None, "created_at": today.replace(hour=14)},
-        # Yesterday - paid
-        {"owner_name": "Sunita Devi", "mobile": "9644556677", "animal_type": "Dog",
-         "visit_reason": "Deworming", "amount": 350.0, "status": "closed",
-         "is_paid": True, "paid_at": today - timedelta(days=1), "created_at": today - timedelta(days=1)},
-        # 2 days ago - unpaid closed
-        {"owner_name": "Murugan P", "mobile": "9555667788", "animal_type": "Goat",
-         "visit_reason": "Emergency", "amount": 1500.0, "status": "closed",
-         "is_paid": False, "paid_at": None, "created_at": today - timedelta(days=2)},
-        # 3 days ago
-        {"owner_name": "Lakshmi V", "mobile": "9466778899", "animal_type": "Buffalo",
-         "visit_reason": "Vaccination", "amount": 600.0, "status": "closed",
-         "is_paid": True, "paid_at": today - timedelta(days=3), "created_at": today - timedelta(days=3)},
-        # Pending from last week
-        {"owner_name": "Vijay S", "mobile": "9377889900", "animal_type": "Dog",
-         "visit_reason": "Surgery", "amount": 3500.0, "status": "pending",
-         "is_paid": False, "paid_at": None, "created_at": today - timedelta(days=5)},
-        # Last week paid
-        {"owner_name": "Kavitha M", "mobile": "9288990011", "animal_type": "Cat",
-         "visit_reason": "Follow-up", "amount": 400.0, "status": "closed",
-         "is_paid": True, "paid_at": today - timedelta(days=6), "created_at": today - timedelta(days=6)},
+    cases = [
+        {"owner_name": "Arjun Sharma", "mobile": "9811223344", "village_name": "Perur",
+         "animal_type": "Dog", "visit_reason": "Vaccination",
+         "visit_date": today, "amount": 800.0, "status": "closed",
+         "is_paid": True, "payment_mode": "Cash", "paid_amount": 800.0,
+         "paid_at": today.replace(hour=9), "follow_up_date": None},
+        {"owner_name": "Priya Nair", "mobile": "9922334455", "village_name": "Kovaipudur",
+         "animal_type": "Cat", "visit_reason": "Check-up",
+         "visit_date": today, "amount": 500.0, "status": "closed",
+         "is_paid": True, "payment_mode": "GPay", "paid_amount": 500.0,
+         "paid_at": today.replace(hour=11), "follow_up_date": None},
+        {"owner_name": "Ramesh Kumar", "mobile": "9733445566", "village_name": "Saravanampatti",
+         "animal_type": "Cow", "visit_reason": "Treatment",
+         "visit_date": today, "amount": 1200.0, "status": "active",
+         "is_paid": False, "payment_mode": None, "paid_amount": 0.0,
+         "paid_at": None, "follow_up_date": day3},
+        {"owner_name": "Lokesh P", "mobile": "9644556677", "village_name": "Perur",
+         "animal_type": "Goat", "visit_reason": "Deworming",
+         "visit_date": tomorrow, "amount": 0.0, "status": "upcoming",
+         "is_paid": False, "payment_mode": None, "paid_amount": 0.0,
+         "paid_at": None, "follow_up_date": None},
+        {"owner_name": "Murugan P", "mobile": "9555667788", "village_name": "Annur",
+         "animal_type": "Buffalo", "visit_reason": "Emergency",
+         "visit_date": day5, "amount": 0.0, "status": "upcoming",
+         "is_paid": False, "payment_mode": None, "paid_amount": 0.0,
+         "paid_at": None, "follow_up_date": None},
+        {"owner_name": "Sunita Devi", "mobile": "9466778899", "village_name": "Thudiyalur",
+         "animal_type": "Dog", "visit_reason": "Surgery",
+         "visit_date": today - timedelta(days=2), "amount": 3500.0, "status": "closed",
+         "is_paid": False, "payment_mode": None, "paid_amount": 0.0,
+         "paid_at": None, "follow_up_date": None},
+        {"owner_name": "Vijay S", "mobile": "9377889900", "village_name": "Annur",
+         "animal_type": "Cow", "visit_reason": "Vaccination",
+         "visit_date": today - timedelta(days=5), "amount": 600.0, "status": "closed",
+         "is_paid": True, "payment_mode": "Cash", "paid_amount": 600.0,
+         "paid_at": today - timedelta(days=5), "follow_up_date": None},
+        {"owner_name": "Kavitha M", "mobile": "9288990011", "village_name": "Perur",
+         "animal_type": "Cat", "visit_reason": "Follow-up",
+         "visit_date": today - timedelta(days=1), "amount": 400.0, "status": "pending",
+         "is_paid": False, "payment_mode": None, "paid_amount": 0.0,
+         "paid_at": None, "follow_up_date": None},
     ]
-    for c in sample_cases:
+    for c in cases:
         c["vet_id"] = vet_id
         c["notes"] = ""
-        c["updated_at"] = c["created_at"]
-    await db.cases.insert_many(sample_cases)
-    logger.info(f"Seeded {len(sample_cases)} demo cases for vet {vet_id}")
-
+        c["forwarded_to_name"] = ""
+        c["forwarded_from"] = ""
+        c["created_at"] = c["visit_date"]
+        c["updated_at"] = c["visit_date"]
+    await db.cases.insert_many(cases)
+    logger.info(f"Seeded {len(cases)} demo cases")
 
 def write_test_credentials():
-    content = """# Animitra Test Credentials
+    Path("/app/memory/test_credentials.md").write_text("""# Animitra Test Credentials
 
-## Admin Account
-- Mobile: 9999999999
-- Password: Admin@1234
-- Role: admin
+## Admin
+- Mobile: 9999999999 | Password: Admin@1234 | Role: admin
 
-## Test Vet Account (register via app)
-- Use the registration flow in the app
-- Enter a coupon code from /api/admin/coupons endpoint
+## Demo Vet
+- Mobile: 1234567890 | Password: Demo@123 | Role: vet (pre-seeded cases)
 
-## API Endpoints
-- POST /api/auth/register
-- POST /api/auth/login
-- POST /api/auth/activate
-- GET /api/auth/me
-- GET /api/location/states
-- GET /api/location/districts/{state}
-- GET /api/location/taluks/{state}/{district}
-- GET /api/admin/coupons
-- POST /api/admin/coupons/generate
-- GET /api/admin/coupons/export
-- GET /api/dashboard/stats
-"""
-    Path("/app/memory/test_credentials.md").write_text(content)
-
+## Auth Endpoints
+- POST /api/auth/register, /api/auth/login, /api/auth/activate, GET /api/auth/me
+""")
 
 @app.on_event("shutdown")
 async def shutdown():
     client.close()
 
-
-# ──────────────────────────── models ──────────────────────────────────────────
+# ─────────────────────────── models ───────────────────────────────────────────
 
 class RegisterRequest(BaseModel):
-    name: str
-    reg_no: str
-    mobile: str
-    password: str
-    state: str
-    district: str
-    taluk: str
-
+    name: str; reg_no: str; mobile: str; password: str
+    state: str; district: str; taluk: str
 
 class LoginRequest(BaseModel):
-    mobile: str
-    password: str
-
+    mobile: str; password: str
 
 class ActivateRequest(BaseModel):
     coupon_code: str
 
+class QuickCaseRequest(BaseModel):
+    owner_name: str
+    mobile: str
+    village_name: str = ""
+    animal_type: str
+    visit_reason: str
+    visit_date: Optional[str] = None
+    notes: Optional[str] = ""
+
+class CloseCaseRequest(BaseModel):
+    amount: float
+    payment_mode: str
+    is_paid: bool
+    follow_up_date: Optional[str] = None
+
+class MarkPaidRequest(BaseModel):
+    amount: float
+    payment_mode: str
+    payment_date: Optional[str] = None
+
+class ForwardCaseRequest(BaseModel):
+    to_mobile: str
+    message: Optional[str] = ""
 
 class GenerateCouponsRequest(BaseModel):
     count: int = 100
 
-
-# ──────────────────────────── auth routes ─────────────────────────────────────
+# ─────────────────────────── auth routes ──────────────────────────────────────
 
 @api_router.post("/auth/register")
 async def register(data: RegisterRequest):
     if not data.mobile.isdigit() or len(data.mobile) != 10:
-        raise HTTPException(status_code=400, detail="Mobile number must be 10 digits")
+        raise HTTPException(400, "Mobile number must be 10 digits")
     if len(data.password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
-
-    existing = await db.users.find_one({"mobile": data.mobile})
-    if existing:
-        raise HTTPException(status_code=400, detail="Mobile number already registered")
-
-    user_doc = {
-        "name": data.name,
-        "reg_no": data.reg_no,
-        "mobile": data.mobile,
-        "password_hash": hash_password(data.password),
-        "state": data.state,
-        "district": data.district,
-        "taluk": data.taluk,
-        "role": "vet",
-        "is_activated": False,
-        "coupon_code": None,
+        raise HTTPException(400, "Password must be at least 6 characters")
+    if await db.users.find_one({"mobile": data.mobile}):
+        raise HTTPException(400, "Mobile number already registered")
+    result = await db.users.insert_one({
+        "name": data.name, "reg_no": data.reg_no, "mobile": data.mobile,
+        "password_hash": hash_password(data.password), "state": data.state,
+        "district": data.district, "taluk": data.taluk, "role": "vet",
+        "is_activated": False, "coupon_code": None,
         "created_at": datetime.now(timezone.utc),
-    }
-    result = await db.users.insert_one(user_doc)
-    user_id = str(result.inserted_id)
-    token = create_token(user_id, data.mobile, "vet")
-    return {
-        "success": True,
-        "message": "Registration successful. Please activate your account.",
-        "token": token,
-        "user": {
-            "id": user_id,
-            "name": data.name,
-            "mobile": data.mobile,
-            "is_activated": False,
-            "role": "vet",
-        }
-    }
-
+    })
+    uid = str(result.inserted_id)
+    return {"success": True, "message": "Registration successful. Please activate your account.",
+            "token": create_token(uid, data.mobile), "user": {
+                "id": uid, "name": data.name, "mobile": data.mobile,
+                "is_activated": False, "role": "vet"}}
 
 @api_router.post("/auth/activate")
-async def activate_coupon(data: ActivateRequest, user=Depends(get_current_user)):
+async def activate(data: ActivateRequest, user=Depends(get_current_user)):
     if user.get("is_activated"):
-        raise HTTPException(status_code=400, detail="Account already activated")
-
+        raise HTTPException(400, "Account already activated")
     code = data.coupon_code.upper().strip()
     coupon = await db.coupons.find_one({"code": code, "is_activated": False})
     if not coupon:
-        raise HTTPException(status_code=400, detail="Invalid or already used coupon code")
-
+        raise HTTPException(400, "Invalid or already used coupon code")
     now = datetime.now(timezone.utc)
-    await db.coupons.update_one(
-        {"_id": coupon["_id"]},
-        {"$set": {"is_activated": True, "activated_by": user["id"], "activated_at": now}}
-    )
-    await db.users.update_one(
-        {"_id": ObjectId(user["id"])},
-        {"$set": {"is_activated": True, "coupon_code": code}}
-    )
-
+    await db.coupons.update_one({"_id": coupon["_id"]},
+        {"$set": {"is_activated": True, "activated_by": user["id"], "activated_at": now}})
+    await db.users.update_one({"_id": ObjectId(user["id"])},
+        {"$set": {"is_activated": True, "coupon_code": code}})
     token = create_token(user["id"], user["mobile"], user.get("role", "vet"))
-    return {
-        "success": True,
-        "message": "Account activated successfully! Welcome to Animitra.",
-        "token": token,
-        "user": {
-            "id": user["id"],
-            "name": user["name"],
-            "mobile": user["mobile"],
-            "is_activated": True,
-            "role": user.get("role", "vet"),
-        }
-    }
-
+    return {"success": True, "message": "Account activated!", "token": token,
+            "user": {"id": user["id"], "name": user["name"], "mobile": user["mobile"],
+                     "is_activated": True, "role": user.get("role", "vet")}}
 
 @api_router.post("/auth/login")
 async def login(data: LoginRequest):
     user = await db.users.find_one({"mobile": data.mobile})
     if not user or not verify_password(data.password, user["password_hash"]):
-        raise HTTPException(status_code=401, detail="Invalid mobile number or password")
-
+        raise HTTPException(401, "Invalid mobile number or password")
     if not user.get("is_activated"):
-        raise HTTPException(status_code=403, detail="Account not activated. Please enter your coupon code.")
-
-    user_id = str(user["_id"])
-    token = create_token(user_id, data.mobile, user.get("role", "vet"))
-    return {
-        "success": True,
-        "token": token,
-        "user": {
-            "id": user_id,
-            "name": user["name"],
-            "mobile": user["mobile"],
-            "reg_no": user.get("reg_no", ""),
-            "state": user.get("state", ""),
-            "district": user.get("district", ""),
-            "taluk": user.get("taluk", ""),
-            "is_activated": user.get("is_activated", False),
-            "role": user.get("role", "vet"),
-        }
-    }
-
+        raise HTTPException(403, "Account not activated. Please enter your coupon code.")
+    uid = str(user["_id"])
+    return {"success": True, "token": create_token(uid, data.mobile, user.get("role", "vet")),
+            "user": {"id": uid, "name": user["name"], "mobile": user["mobile"],
+                     "reg_no": user.get("reg_no", ""), "state": user.get("state", ""),
+                     "district": user.get("district", ""), "taluk": user.get("taluk", ""),
+                     "is_activated": True, "role": user.get("role", "vet")}}
 
 @api_router.get("/auth/me")
 async def me(user=Depends(get_current_user)):
     return {"success": True, "user": user}
 
-
-# ─────────────────────────── location routes ──────────────────────────────────
+# ─────────────────────────── location ─────────────────────────────────────────
 
 @api_router.get("/location/states")
 async def states():
     return {"states": get_states()}
 
-
 @api_router.get("/location/districts/{state}")
 async def districts(state: str):
     return {"districts": get_districts(state)}
-
 
 @api_router.get("/location/taluks/{state}/{district}")
 async def taluks(state: str, district: str):
     return {"taluks": get_taluks(state, district)}
 
+# ─────────────────────────── villages autocomplete ────────────────────────────
 
-# ─────────────────────────── admin coupon routes ───────────────────────────────
+@api_router.get("/villages")
+async def villages(user=Depends(get_current_user)):
+    vlist = await db.cases.distinct("village_name", {"vet_id": user["id"], "village_name": {"$nin": [None, ""]}})
+    return {"villages": sorted([v for v in vlist if v])}
+
+# ─────────────────────────── case routes ──────────────────────────────────────
+
+@api_router.post("/cases/quick-add")
+async def quick_add_case(data: QuickCaseRequest, user=Depends(get_current_user)):
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    visit_date = parse_date(data.visit_date) or today_start
+    status = "upcoming" if visit_date > today_start else "active"
+    result = await db.cases.insert_one({
+        "vet_id": user["id"], "owner_name": data.owner_name, "mobile": data.mobile,
+        "village_name": data.village_name or "", "animal_type": data.animal_type,
+        "visit_reason": data.visit_reason, "visit_date": visit_date, "amount": 0.0,
+        "notes": data.notes or "", "status": status,
+        "is_paid": False, "payment_mode": None, "paid_amount": 0.0,
+        "paid_at": None, "follow_up_date": None,
+        "forwarded_to_name": "", "forwarded_from": "",
+        "created_at": datetime.now(timezone.utc), "updated_at": datetime.now(timezone.utc),
+    })
+    return {"success": True, "message": "Case added", "case_id": str(result.inserted_id)}
+
+@api_router.get("/cases/today")
+async def today_cases(user=Depends(get_current_user)):
+    await run_auto_pending(user["id"])
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    tomorrow = today_start + timedelta(days=1)
+    cursor = db.cases.find({"vet_id": user["id"],
+        "visit_date": {"$gte": today_start, "$lt": tomorrow}}).sort("visit_date", 1)
+    return {"cases": [fmt_case(c) async for c in cursor]}
+
+@api_router.get("/cases/upcoming")
+async def upcoming_cases(user=Depends(get_current_user)):
+    await run_auto_pending(user["id"])
+    tomorrow = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    cursor = db.cases.find({"vet_id": user["id"], "status": "upcoming",
+        "visit_date": {"$gte": tomorrow}}).sort("visit_date", 1).limit(20)
+    return {"cases": [fmt_case(c) async for c in cursor]}
+
+@api_router.get("/cases/pending")
+async def pending_cases(user=Depends(get_current_user)):
+    await run_auto_pending(user["id"])
+    cursor = db.cases.find({"vet_id": user["id"], "status": "pending"}).sort("visit_date", -1).limit(50)
+    return {"cases": [fmt_case(c) async for c in cursor]}
+
+@api_router.get("/cases/closed")
+async def closed_cases(user=Depends(get_current_user), skip: int = 0, limit: int = 50):
+    cursor = db.cases.find({"vet_id": user["id"], "status": "closed"}).sort("updated_at", -1).skip(skip).limit(limit)
+    total = await db.cases.count_documents({"vet_id": user["id"], "status": "closed"})
+    return {"cases": [fmt_case(c) async for c in cursor], "total": total}
+
+@api_router.post("/cases/{case_id}/close")
+async def close_case(case_id: str, data: CloseCaseRequest, user=Depends(get_current_user)):
+    case = await db.cases.find_one({"_id": ObjectId(case_id), "vet_id": user["id"]})
+    if not case:
+        raise HTTPException(404, "Case not found")
+    now = datetime.now(timezone.utc)
+    update = {
+        "status": "closed", "amount": data.amount, "is_paid": data.is_paid,
+        "payment_mode": data.payment_mode if data.is_paid else None,
+        "paid_amount": data.amount if data.is_paid else 0.0,
+        "paid_at": now if data.is_paid else None,
+        "updated_at": now,
+    }
+    fu_date = parse_date(data.follow_up_date)
+    if fu_date:
+        update["follow_up_date"] = fu_date
+        # Create follow-up case
+        await db.cases.insert_one({
+            "vet_id": user["id"], "owner_name": case["owner_name"], "mobile": case["mobile"],
+            "village_name": case.get("village_name", ""), "animal_type": case["animal_type"],
+            "visit_reason": "Follow-up", "visit_date": fu_date, "amount": 0.0,
+            "notes": f"Follow-up for {case['visit_reason']}", "status": "upcoming",
+            "is_paid": False, "payment_mode": None, "paid_amount": 0.0, "paid_at": None,
+            "follow_up_date": None, "forwarded_to_name": "", "forwarded_from": "",
+            "created_at": now, "updated_at": now,
+        })
+    await db.cases.update_one({"_id": ObjectId(case_id)}, {"$set": update})
+    return {"success": True}
+
+@api_router.post("/cases/{case_id}/mark-paid")
+async def mark_paid(case_id: str, data: MarkPaidRequest, user=Depends(get_current_user)):
+    case = await db.cases.find_one({"_id": ObjectId(case_id), "vet_id": user["id"]})
+    if not case:
+        raise HTTPException(404, "Case not found")
+    paid_dt = parse_date(data.payment_date) or datetime.now(timezone.utc)
+    await db.cases.update_one({"_id": ObjectId(case_id)}, {"$set": {
+        "is_paid": True, "payment_mode": data.payment_mode,
+        "paid_amount": data.amount, "paid_at": paid_dt,
+        "updated_at": datetime.now(timezone.utc),
+    }})
+    return {"success": True}
+
+@api_router.post("/cases/{case_id}/forward")
+async def forward_case(case_id: str, data: ForwardCaseRequest, user=Depends(get_current_user)):
+    case = await db.cases.find_one({"_id": ObjectId(case_id), "vet_id": user["id"]})
+    if not case:
+        raise HTTPException(404, "Case not found")
+    target = await db.users.find_one({"mobile": data.to_mobile, "is_activated": True})
+    if not target:
+        raise HTTPException(404, "No registered Animitra vet found with this mobile number")
+    target_id = str(target["_id"])
+    now = datetime.now(timezone.utc)
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    await db.cases.insert_one({
+        "vet_id": target_id, "owner_name": case["owner_name"], "mobile": case["mobile"],
+        "village_name": case.get("village_name", ""), "animal_type": case["animal_type"],
+        "visit_reason": case["visit_reason"], "visit_date": today, "amount": 0.0,
+        "notes": f"Forwarded by Dr. {user['name']}. {data.message or ''}".strip(),
+        "status": "active", "is_paid": False, "payment_mode": None, "paid_amount": 0.0,
+        "paid_at": None, "follow_up_date": None,
+        "forwarded_from": user["name"], "forwarded_to_name": "",
+        "created_at": now, "updated_at": now,
+    })
+    await db.cases.update_one({"_id": ObjectId(case_id)}, {"$set": {
+        "status": "forwarded", "forwarded_to_name": target.get("name", target["mobile"]),
+        "updated_at": now,
+    }})
+    return {"success": True, "forwarded_to": target.get("name", target["mobile"])}
+
+@api_router.get("/cases")
+async def list_cases(status: Optional[str] = None, skip: int = 0, limit: int = 50,
+                     user=Depends(get_current_user)):
+    await run_auto_pending(user["id"])
+    query: dict = {"vet_id": user["id"]}
+    if status:
+        query["status"] = status
+    total = await db.cases.count_documents(query)
+    cursor = db.cases.find(query).sort("visit_date", -1).skip(skip).limit(limit)
+    return {"total": total, "cases": [fmt_case(c) async for c in cursor]}
+
+# ─────────────────────────── ledger ───────────────────────────────────────────
+
+@api_router.get("/ledger/outstanding")
+async def outstanding(period: str = "all", user=Depends(get_current_user)):
+    query: dict = {"vet_id": user["id"], "status": "closed", "is_paid": False}
+    if period == "week":
+        query["created_at"] = {"$gte": datetime.now(timezone.utc) - timedelta(days=7)}
+    elif period == "month":
+        query["created_at"] = {"$gte": datetime.now(timezone.utc) - timedelta(days=30)}
+    agg = await db.cases.aggregate([
+        {"$match": query}, {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]).to_list(1)
+    total_amount = agg[0]["total"] if agg else 0
+    cursor = db.cases.find(query).sort("created_at", -1).limit(100)
+    return {"total_outstanding": total_amount, "cases": [fmt_case(c) async for c in cursor]}
+
+# ─────────────────────────── dashboard stats ──────────────────────────────────
+
+@api_router.get("/dashboard/stats")
+async def dashboard_stats(user=Depends(get_current_user)):
+    vid = user["id"]
+    await run_auto_pending(vid)
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    tomorrow = today + timedelta(days=1)
+
+    today_cases = await db.cases.count_documents({"vet_id": vid, "visit_date": {"$gte": today, "$lt": tomorrow}})
+    pending_cases = await db.cases.count_documents({"vet_id": vid, "status": "pending"})
+    upcoming_cases = await db.cases.count_documents({"vet_id": vid, "status": "upcoming"})
+    total_cases = await db.cases.count_documents({"vet_id": vid})
+
+    def agg_sum(match): return db.cases.aggregate([{"$match": match}, {"$group": {"_id": None, "s": {"$sum": "$paid_amount"}}}])
+
+    r1 = await (agg_sum({"vet_id": vid, "is_paid": True, "paid_at": {"$gte": today, "$lt": tomorrow}})).to_list(1)
+    today_earnings = r1[0]["s"] if r1 else 0
+    r2 = await (agg_sum({"vet_id": vid, "is_paid": True})).to_list(1)
+    total_earnings = r2[0]["s"] if r2 else 0
+    r3 = await db.cases.aggregate([{"$match": {"vet_id": vid, "status": "closed", "is_paid": False}},
+                                    {"$group": {"_id": None, "s": {"$sum": "$amount"}}}]).to_list(1)
+    pending_payments = r3[0]["s"] if r3 else 0
+
+    return {"today_cases": today_cases, "pending_cases": pending_cases, "upcoming_cases": upcoming_cases,
+            "today_earnings": today_earnings, "total_earnings": total_earnings,
+            "pending_payments": pending_payments, "total_cases": total_cases}
+
+# ─────────────────────────── admin coupons ────────────────────────────────────
 
 @api_router.get("/admin/coupons")
-async def list_coupons(
-    skip: int = 0,
-    limit: int = 100,
-    only_unused: bool = False,
-    user=Depends(get_admin_user)
-):
-    query = {}
-    if only_unused:
-        query["is_activated"] = False
-    total = await db.coupons.count_documents(query)
+async def list_coupons(skip: int = 0, limit: int = 100, only_unused: bool = False,
+                       user=Depends(get_admin_user)):
+    q = {"is_activated": False} if only_unused else {}
+    total = await db.coupons.count_documents({})
     activated = await db.coupons.count_documents({"is_activated": True})
     unused = await db.coupons.count_documents({"is_activated": False})
-    coupons_cursor = db.coupons.find(query).skip(skip).limit(limit).sort("created_at", -1)
     coupons = []
-    async for c in coupons_cursor:
-        coupons.append({
-            "code": c["code"],
-            "is_activated": c["is_activated"],
-            "activated_by": c.get("activated_by"),
-            "activated_at": c.get("activated_at").isoformat() if c.get("activated_at") else None,
-            "created_at": c["created_at"].isoformat(),
-        })
+    async for c in db.coupons.find(q).skip(skip).limit(limit).sort("created_at", -1):
+        coupons.append({"code": c["code"], "is_activated": c["is_activated"],
+                        "activated_by": c.get("activated_by"),
+                        "activated_at": c.get("activated_at").isoformat() if c.get("activated_at") else None,
+                        "created_at": c["created_at"].isoformat()})
     return {"total": total, "activated": activated, "unused": unused, "coupons": coupons}
 
-
 @api_router.post("/admin/coupons/generate")
-async def generate_coupons(data: GenerateCouponsRequest, user=Depends(get_admin_user)):
-    existing_codes = set(await db.coupons.distinct("code"))
-    new_coupons = []
-    attempts = 0
+async def gen_coupons(data: GenerateCouponsRequest, user=Depends(get_admin_user)):
+    existing = set(await db.coupons.distinct("code"))
+    new_coupons, attempts = [], 0
     while len(new_coupons) < data.count and attempts < data.count * 10:
         code = "".join(secrets.choice(COUPON_CHARS) for _ in range(COUPON_LENGTH))
-        if code not in existing_codes:
-            existing_codes.add(code)
-            new_coupons.append({
-                "code": code,
-                "is_activated": False,
-                "activated_by": None,
-                "activated_at": None,
-                "created_at": datetime.now(timezone.utc),
-            })
+        if code not in existing:
+            existing.add(code)
+            new_coupons.append({"code": code, "is_activated": False, "activated_by": None,
+                                "activated_at": None, "created_at": datetime.now(timezone.utc)})
         attempts += 1
     if new_coupons:
         await db.coupons.insert_many(new_coupons)
     return {"success": True, "generated": len(new_coupons)}
 
-
 @api_router.get("/admin/coupons/export")
 async def export_coupons(user=Depends(get_admin_user)):
-    coupons_cursor = db.coupons.find({"is_activated": False}).sort("created_at", -1)
     lines = ["CODE,STATUS,CREATED_AT"]
-    async for c in coupons_cursor:
+    async for c in db.coupons.find({"is_activated": False}).sort("created_at", -1):
         lines.append(f"{c['code']},UNUSED,{c['created_at'].strftime('%Y-%m-%d %H:%M:%S')}")
     return PlainTextResponse("\n".join(lines), media_type="text/csv")
 
-
-# ─────────────────────────── dashboard ────────────────────────────────────────
-
-@api_router.get("/dashboard/stats")
-async def dashboard_stats(user=Depends(get_current_user)):
-    vet_id = user["id"]
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-
-    today_cases = await db.cases.count_documents({"vet_id": vet_id, "created_at": {"$gte": today_start}})
-    pending_cases = await db.cases.count_documents({"vet_id": vet_id, "status": "pending"})
-    total_cases = await db.cases.count_documents({"vet_id": vet_id})
-
-    today_paid_cursor = db.cases.find({"vet_id": vet_id, "is_paid": True, "paid_at": {"$gte": today_start}})
-    today_earnings = 0.0
-    async for c in today_paid_cursor:
-        today_earnings += c.get("amount", 0)
-
-    total_paid_cursor = db.cases.find({"vet_id": vet_id, "is_paid": True})
-    total_earnings = 0.0
-    async for c in total_paid_cursor:
-        total_earnings += c.get("amount", 0)
-
-    pending_payment_cursor = db.cases.find({"vet_id": vet_id, "is_paid": False, "status": "closed"})
-    pending_payments = 0.0
-    async for c in pending_payment_cursor:
-        pending_payments += c.get("amount", 0)
-
-    return {
-        "today_cases": today_cases,
-        "pending_cases": pending_cases,
-        "today_earnings": today_earnings,
-        "total_earnings": total_earnings,
-        "pending_payments": pending_payments,
-        "total_cases": total_cases,
-    }
-
-
-# ─────────────────────────── quick case / lead ────────────────────────────────
-
-class QuickCaseRequest(BaseModel):
-    owner_name: str
-    mobile: str
-    animal_type: str
-    visit_reason: str
-    estimated_amount: Optional[float] = 0.0
-    notes: Optional[str] = ""
-
-
-@api_router.post("/cases/quick-add")
-async def quick_add_case(data: QuickCaseRequest, user=Depends(get_current_user)):
-    case_doc = {
-        "vet_id": user["id"],
-        "owner_name": data.owner_name,
-        "mobile": data.mobile,
-        "animal_type": data.animal_type,
-        "visit_reason": data.visit_reason,
-        "amount": data.estimated_amount or 0.0,
-        "notes": data.notes or "",
-        "status": "pending",
-        "is_paid": False,
-        "paid_at": None,
-        "created_at": datetime.now(timezone.utc),
-        "updated_at": datetime.now(timezone.utc),
-    }
-    result = await db.cases.insert_one(case_doc)
-    return {
-        "success": True,
-        "message": "Case added successfully",
-        "case_id": str(result.inserted_id),
-    }
-
-
-@api_router.get("/cases")
-async def list_cases(
-    status: Optional[str] = None,
-    skip: int = 0,
-    limit: int = 50,
-    user=Depends(get_current_user)
-):
-    query: dict = {"vet_id": user["id"]}
-    if status:
-        query["status"] = status
-    total = await db.cases.count_documents(query)
-    cursor = db.cases.find(query).sort("created_at", -1).skip(skip).limit(limit)
-    cases = []
-    async for c in cursor:
-        cases.append({
-            "id": str(c["_id"]),
-            "owner_name": c["owner_name"],
-            "mobile": c["mobile"],
-            "animal_type": c["animal_type"],
-            "visit_reason": c["visit_reason"],
-            "amount": c.get("amount", 0),
-            "notes": c.get("notes", ""),
-            "status": c["status"],
-            "is_paid": c.get("is_paid", False),
-            "created_at": c["created_at"].isoformat(),
-        })
-    return {"total": total, "cases": cases}
-
-
-# ─────────────────────────── health ────────────────────────────────────────────
+# ─────────────────────────── health ───────────────────────────────────────────
 
 @api_router.get("/")
 async def root():
-    return {"message": "Animitra API is running", "version": "1.0.0"}
-
+    return {"message": "Animitra API running", "version": "2.0.0"}
 
 app.include_router(api_router)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
+                   allow_methods=["*"], allow_headers=["*"])

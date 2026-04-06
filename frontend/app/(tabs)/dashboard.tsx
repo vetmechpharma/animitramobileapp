@@ -2,275 +2,355 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   ActivityIndicator, TouchableOpacity, RefreshControl, Alert,
-  Modal, TextInput, KeyboardAvoidingView, Platform,
+  Modal, TextInput, KeyboardAvoidingView, Platform, Linking,
   Animated, FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import * as Contacts from 'expo-contacts';
+import DatePickerModal from '../../components/DatePicker';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-
 const ANIMAL_TYPES = ['Dog', 'Cat', 'Cow', 'Buffalo', 'Goat', 'Sheep', 'Poultry', 'Horse', 'Bird', 'Rabbit', 'Pig', 'Other'];
 const VISIT_REASONS = ['Vaccination', 'Check-up', 'Treatment', 'Emergency', 'Surgery', 'Follow-up', 'Deworming', 'Grooming', 'Other'];
+const PAYMENT_MODES = ['Cash', 'GPay', 'Online', 'Cheque', 'Other'];
 
-interface Stats {
-  today_cases: number;
-  pending_cases: number;
-  today_earnings: number;
-  total_earnings: number;
-  pending_payments: number;
-  total_cases: number;
+const C = {
+  primary: '#2E7D32', primaryLight: '#4CAF50', bg: '#FDFBF7', surface: '#FFFFFF',
+  secondary: '#E8F5E9', text: '#0A1F10', sub: '#4A5D4E', border: '#E0E8E1',
+  warning: '#F57F17', error: '#D32F2F', blue: '#1565C0',
+};
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const tom = new Date(today); tom.setDate(today.getDate() + 1);
+  if (d.toDateString() === today.toDateString()) return 'Today';
+  if (d.toDateString() === tom.toDateString()) return 'Tomorrow';
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', weekday: 'short' });
+}
+
+function formatDateLabel(date: Date): string {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const tom = new Date(today); tom.setDate(today.getDate() + 1);
+  if (date.toDateString() === today.toDateString()) return 'Today';
+  if (date.toDateString() === tom.toDateString()) return 'Tomorrow';
+  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+interface Case {
+  id: string; owner_name: string; mobile: string; village_name: string;
+  animal_type: string; visit_reason: string; visit_date: string;
+  amount: number; status: string; is_paid: boolean; payment_mode: string | null;
+  paid_amount: number; follow_up_date: string | null; forwarded_from: string;
 }
 
 const STAT_CARDS = [
-  { key: 'today_cases', label: "Today's Cases", emoji: '🩺', color: '#E8F5E9', numColor: '#2E7D32' },
-  { key: 'pending_cases', label: 'Pending Cases', emoji: '⏳', color: '#FFF8E1', numColor: '#F57F17' },
-  { key: 'today_earnings', label: "Today's Earnings", emoji: '💰', color: '#E3F2FD', numColor: '#1565C0', isMoney: true },
-  { key: 'total_earnings', label: 'Total Earnings', emoji: '📈', color: '#F3E5F5', numColor: '#6A1B9A', isMoney: true },
-  { key: 'pending_payments', label: 'Pending Payment', emoji: '💳', color: '#FBE9E7', numColor: '#BF360C', isMoney: true },
-  { key: 'total_cases', label: 'Total Cases', emoji: '📋', color: '#E0F2F1', numColor: '#004D40' },
+  { key: 'today_cases', label: "Today's Cases", emoji: '🩺', color: '#E8F5E9', num: '#2E7D32' },
+  { key: 'upcoming_cases', label: 'Upcoming', emoji: '📅', color: '#E3F2FD', num: C.blue },
+  { key: 'today_earnings', label: "Today's Earnings", emoji: '💰', color: '#FFF8E1', num: C.warning, money: true },
+  { key: 'total_earnings', label: 'Total Earnings', emoji: '📈', color: '#F3E5F5', num: '#6A1B9A', money: true },
+  { key: 'pending_payments', label: 'Outstanding', emoji: '💳', color: '#FBE9E7', num: C.error, money: true },
+  { key: 'total_cases', label: 'Total Cases', emoji: '📋', color: '#E0F2F1', num: '#004D40' },
 ];
 
 export default function DashboardScreen() {
   const router = useRouter();
   const { user, token, logout, isLoading: authLoading } = useAuth();
-  const [stats, setStats] = useState<Stats | null>(null);
+  const [stats, setStats] = useState<any>(null);
+  const [todayCases, setTodayCases] = useState<Case[]>([]);
+  const [upcomingCases, setUpcomingCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Quick Add state
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [quickForm, setQuickForm] = useState({
-    owner_name: '', mobile: '', animal_type: '', visit_reason: '', estimated_amount: '', notes: '',
-  });
-  const [pickerType, setPickerType] = useState<'animal' | 'reason' | null>(null);
   const fabAnim = useRef(new Animated.Value(1)).current;
 
-  useEffect(() => {
-    if (!authLoading && !user) router.replace('/');
-  }, [user, authLoading]);
+  // Quick Add
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [quickForm, setQuickForm] = useState({ owner_name: '', mobile: '', village_name: '', animal_type: '', visit_reason: '', notes: '' });
+  const [visitDate, setVisitDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [allVillages, setAllVillages] = useState<string[]>([]);
+  const [villageSuggestions, setVillageSuggestions] = useState<string[]>([]);
+  const [showVillageSug, setShowVillageSug] = useState(false);
+  const [pickerType, setPickerType] = useState<'animal' | 'reason' | null>(null);
+  const [quickSaving, setQuickSaving] = useState(false);
+  const [contactList, setContactList] = useState<{ name: string; phone: string }[]>([]);
+  const [showContactPicker, setShowContactPicker] = useState(false);
+  const [contactSearch, setContactSearch] = useState('');
 
-  useEffect(() => {
-    if (token) fetchStats();
-  }, [token]);
+  // Close Case
+  const [closeCase, setCloseCase] = useState<Case | null>(null);
+  const [closeForm, setCloseForm] = useState({ amount: '', payment_mode: 'Cash', is_paid: true });
+  const [showFollowUp, setShowFollowUp] = useState(false);
+  const [followUpDate, setFollowUpDate] = useState(new Date());
+  const [showFollowUpPicker, setShowFollowUpPicker] = useState(false);
+  const [closeSaving, setCloseSaving] = useState(false);
 
-  const fetchStats = async () => {
+  useEffect(() => { if (!authLoading && !user) router.replace('/'); }, [user, authLoading]);
+  useEffect(() => { if (token) fetchAll(); }, [token]);
+  useEffect(() => {
+    const p = Animated.loop(Animated.sequence([
+      Animated.timing(fabAnim, { toValue: 1.08, duration: 800, useNativeDriver: true }),
+      Animated.timing(fabAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+    ]));
+    p.start(); return () => p.stop();
+  }, []);
+
+  const fetchAll = async () => {
     if (!token) return;
+    const h = { Authorization: `Bearer ${token}` };
     try {
-      const res = await fetch(`${BACKEND_URL}/api/dashboard/stats`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        if (res.status === 401) { logout(); router.replace('/'); return; }
-        throw new Error('Failed to fetch stats');
-      }
-      setStats(await res.json());
+      const [s, t, u] = await Promise.all([
+        fetch(`${BACKEND_URL}/api/dashboard/stats`, { headers: h }).then(r => r.json()),
+        fetch(`${BACKEND_URL}/api/cases/today`, { headers: h }).then(r => r.json()),
+        fetch(`${BACKEND_URL}/api/cases/upcoming`, { headers: h }).then(r => r.json()),
+      ]);
+      setStats(s); setTodayCases(t.cases || []); setUpcomingCases(u.cases || []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); setRefreshing(false); }
   };
 
-  const onRefresh = useCallback(() => { setRefreshing(true); fetchStats(); }, [token]);
+  const onRefresh = useCallback(() => { setRefreshing(true); fetchAll(); }, [token]);
 
-  // FAB pulse animation
-  useEffect(() => {
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(fabAnim, { toValue: 1.08, duration: 800, useNativeDriver: true }),
-        Animated.timing(fabAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, []);
-
-  const openQuickAdd = () => {
-    setQuickForm({ owner_name: '', mobile: '', animal_type: '', visit_reason: '', estimated_amount: '', notes: '' });
+  const openQuickAdd = async () => {
+    setQuickForm({ owner_name: '', mobile: '', village_name: '', animal_type: '', visit_reason: '', notes: '' });
+    setVisitDate(new Date());
+    if (token) {
+      const res = await fetch(`${BACKEND_URL}/api/villages`, { headers: { Authorization: `Bearer ${token}` } });
+      const d = await res.json();
+      setAllVillages(d.villages || []);
+    }
     setShowQuickAdd(true);
+  };
+
+  const handleVillageChange = (text: string) => {
+    setQuickForm(f => ({ ...f, village_name: text }));
+    if (text.length > 0) {
+      const filtered = allVillages.filter(v => v.toLowerCase().includes(text.toLowerCase()));
+      setVillageSuggestions(filtered.slice(0, 5));
+      setShowVillageSug(filtered.length > 0);
+    } else { setShowVillageSug(false); }
   };
 
   const pickFromContacts = async () => {
     try {
       const { status } = await Contacts.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Please allow contact access to pick a contact.');
-        return;
-      }
-      const { data } = await Contacts.getContactsAsync({
-        fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers],
-      });
-      if (!data.length) { Alert.alert('No Contacts', 'No contacts found on this device.'); return; }
+      if (status !== 'granted') { Alert.alert('Permission Denied', 'Allow contacts access to pick a contact.'); return; }
+      const { data } = await Contacts.getContactsAsync({ fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers] });
+      const items = data.filter(c => c.phoneNumbers?.length).slice(0, 200).map(c => ({
+        name: c.name || 'Unknown', phone: c.phoneNumbers![0].number?.replace(/[\s\-\(\)]/g, '') || '',
+      }));
+      setContactList(items); setContactSearch(''); setShowContactPicker(true);
+    } catch (e) { Alert.alert('Error', 'Could not access contacts'); }
+  };
 
-      // Show contact picker
-      const contactItems = data
-        .filter(c => c.phoneNumbers && c.phoneNumbers.length > 0)
-        .slice(0, 200)
-        .map(c => ({
-          name: c.name || 'Unknown',
-          phone: c.phoneNumbers![0].number?.replace(/[\s\-\(\)]/g, '') || '',
-        }));
-
-      setContactList(contactItems);
-      setShowContactPicker(true);
-    } catch (e) {
-      Alert.alert('Error', 'Could not access contacts');
+  const saveQuickAdd = async () => {
+    if (!quickForm.owner_name || !quickForm.mobile || !quickForm.animal_type || !quickForm.visit_reason) {
+      Alert.alert('Required', 'Please fill owner name, mobile, animal type and visit reason'); return;
     }
-  };
-
-  const [contactList, setContactList] = useState<{ name: string; phone: string }[]>([]);
-  const [showContactPicker, setShowContactPicker] = useState(false);
-  const [contactSearch, setContactSearch] = useState('');
-
-  const selectContact = (contact: { name: string; phone: string }) => {
-    setQuickForm(f => ({ ...f, owner_name: contact.name, mobile: contact.phone.replace(/\D/g, '').slice(-10) }));
-    setShowContactPicker(false);
-    setContactSearch('');
-  };
-
-  const handleSaveCase = async () => {
-    const { owner_name, mobile, animal_type, visit_reason } = quickForm;
-    if (!owner_name.trim()) { Alert.alert('Required', 'Please enter owner name'); return; }
-    if (!mobile.trim() || mobile.length < 10) { Alert.alert('Required', 'Please enter a valid 10-digit mobile number'); return; }
-    if (!animal_type) { Alert.alert('Required', 'Please select animal type'); return; }
-    if (!visit_reason) { Alert.alert('Required', 'Please select visit reason'); return; }
-
-    setSaving(true);
+    if (quickForm.mobile.length < 10) { Alert.alert('Invalid', 'Enter a valid 10-digit mobile number'); return; }
+    setQuickSaving(true);
     try {
+      const visitDateStr = visitDate.toISOString().split('T')[0];
       const res = await fetch(`${BACKEND_URL}/api/cases/quick-add`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ...quickForm, visit_date: visitDateStr }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.detail || 'Failed');
+      setShowQuickAdd(false); fetchAll();
+      Alert.alert('✅ Case Added!', `${quickForm.animal_type} case for ${quickForm.owner_name} saved.`);
+    } catch (e: any) { Alert.alert('Error', e.message); }
+    finally { setQuickSaving(false); }
+  };
+
+  const openCloseCase = (c: Case) => {
+    setCloseCase(c);
+    setCloseForm({ amount: '', payment_mode: 'Cash', is_paid: true });
+    setShowFollowUp(false);
+    const fu = new Date(); fu.setDate(fu.getDate() + 7);
+    setFollowUpDate(fu);
+  };
+
+  const saveClose = async () => {
+    if (!closeCase) return;
+    if (!closeForm.amount || isNaN(parseFloat(closeForm.amount))) {
+      Alert.alert('Required', 'Please enter the amount charged (can be 0)'); return;
+    }
+    setCloseSaving(true);
+    try {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const fuStr = showFollowUp ? followUpDate.toISOString().split('T')[0] : null;
+      const res = await fetch(`${BACKEND_URL}/api/cases/${closeCase.id}/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          owner_name: owner_name.trim(),
-          mobile: mobile.trim(),
-          animal_type,
-          visit_reason,
-          estimated_amount: parseFloat(quickForm.estimated_amount) || 0,
-          notes: quickForm.notes.trim(),
+          amount: parseFloat(closeForm.amount),
+          payment_mode: closeForm.payment_mode,
+          is_paid: closeForm.is_paid,
+          follow_up_date: fuStr,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Failed to save');
-      setShowQuickAdd(false);
-      fetchStats();
-      Alert.alert('✅ Case Added!', `${animal_type} case for ${owner_name} has been recorded.`);
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to save case');
-    } finally {
-      setSaving(false);
-    }
+      if (!res.ok) throw new Error('Failed to close case');
+      setCloseCase(null); fetchAll();
+      Alert.alert('✅ Case Closed', closeForm.is_paid ? 'Payment recorded!' : 'Case closed. Payment pending in ledger.');
+    } catch (e: any) { Alert.alert('Error', e.message); }
+    finally { setCloseSaving(false); }
   };
 
-  const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: async () => { await logout(); router.replace('/'); } },
-    ]);
-  };
+  const callPhone = (phone: string) => { Linking.openURL(`tel:${phone}`); };
 
-  const formatValue = (val: number, isMoney: boolean) => {
-    if (isMoney) return `₹${val.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-    return val.toString();
-  };
+  const handleLogout = () => Alert.alert('Logout', 'Are you sure?', [
+    { text: 'Cancel', style: 'cancel' },
+    { text: 'Logout', style: 'destructive', onPress: async () => { await logout(); router.replace('/'); } },
+  ]);
 
-  if (authLoading || !user) {
-    return <View style={styles.centerLoader}><ActivityIndicator size="large" color="#2E7D32" /></View>;
-  }
-
-  const greeting = (() => {
-    const h = new Date().getHours();
-    if (h < 12) return 'Good Morning';
-    if (h < 17) return 'Good Afternoon';
-    return 'Good Evening';
-  })();
+  const fmt = (val: number, money: boolean) =>
+    money ? `₹${val.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : `${val}`;
 
   const filteredContacts = contactSearch
     ? contactList.filter(c => c.name.toLowerCase().includes(contactSearch.toLowerCase()) || c.phone.includes(contactSearch))
     : contactList;
 
+  if (authLoading || !user) return <View style={styles.center}><ActivityIndicator size="large" color={C.primary} /></View>;
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
+
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2E7D32" />}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
+        showsVerticalScrollIndicator={false}>
+
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.headerLeft}>
+          <View style={{ flex: 1 }}>
             <Text style={styles.greeting}>{greeting} 👋</Text>
-            <Text style={styles.doctorName}>Dr. {user.name}</Text>
-            <Text style={styles.regNo}>{user.reg_no || 'Veterinarian'}</Text>
+            <Text style={styles.name}>Dr. {user.name}</Text>
+            <Text style={styles.reg}>{user.reg_no}</Text>
           </View>
           <TouchableOpacity testID="logout-btn" style={styles.avatarBtn} onPress={handleLogout}>
-            <Text style={styles.avatarEmoji}>🐾</Text>
+            <Text style={{ fontSize: 24 }}>🐾</Text>
           </TouchableOpacity>
         </View>
-
-        <View style={styles.locationPill}>
-          <Text style={styles.locationText}>📍 {user.taluk}, {user.district}, {user.state}</Text>
+        <View style={styles.locPill}>
+          <Text style={styles.locText}>📍 {user.taluk}, {user.district}, {user.state}</Text>
         </View>
 
         {/* Stats */}
-        <View style={styles.sectionHeader}>
+        <View style={styles.sectionRow}>
           <Text style={styles.sectionTitle}>Practice Overview</Text>
           <TouchableOpacity testID="refresh-stats-btn" onPress={onRefresh}>
-            <Text style={styles.refreshText}>↻ Refresh</Text>
+            <Text style={styles.refreshBtn}>↻ Refresh</Text>
           </TouchableOpacity>
         </View>
-
         {loading ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="large" color="#2E7D32" />
-            <Text style={styles.loadingText}>Loading stats...</Text>
-          </View>
+          <View style={styles.loadBox}><ActivityIndicator color={C.primary} size="large" /></View>
         ) : (
           <View style={styles.grid} testID="stats-grid">
             {STAT_CARDS.map(card => (
-              <View key={card.key} testID={`stat-card-${card.key}`} style={[styles.card, { backgroundColor: card.color }]}>
-                <View style={styles.emojiWrap}>
-                  <Text style={styles.cardEmoji}>{card.emoji}</Text>
-                </View>
-                <Text style={[styles.cardNumber, { color: card.numColor }]}>
-                  {stats ? formatValue((stats as any)[card.key], card.isMoney || false) : '--'}
+              <View key={card.key} testID={`stat-${card.key}`} style={[styles.card, { backgroundColor: card.color }]}>
+                <View style={styles.emojiWrap}><Text style={{ fontSize: 20 }}>{card.emoji}</Text></View>
+                <Text style={[styles.statNum, { color: card.num }]}>
+                  {stats ? fmt((stats as any)[card.key] || 0, card.money || false) : '--'}
                 </Text>
-                <Text style={styles.cardLabel}>{card.label}</Text>
+                <Text style={styles.statLabel}>{card.label}</Text>
               </View>
             ))}
           </View>
         )}
 
-        {/* Quick Actions */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+        {/* Today's Cases */}
+        <View style={styles.sectionRow}>
+          <Text style={styles.sectionTitle}>Today's Cases ({todayCases.length})</Text>
         </View>
-        <View style={styles.actionsRow}>
-          {[
-            { id: 'new-case', emoji: '➕', label: 'New Case', onPress: openQuickAdd },
-            { id: 'appointments', emoji: '🗓️', label: 'Schedule', onPress: () => {} },
-            { id: 'patients', emoji: '🐕', label: 'Patients', onPress: () => {} },
-            { id: 'billing', emoji: '🧾', label: 'Billing', onPress: () => {} },
-          ].map(a => (
-            <TouchableOpacity key={a.id} testID={`${a.id}-btn`} style={styles.actionBtn} onPress={a.onPress}>
-              <Text style={styles.actionEmoji}>{a.emoji}</Text>
-              <Text style={styles.actionText}>{a.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={[styles.comingSoonBanner, { marginBottom: 100 }]} testID="coming-soon-banner">
-          <Text style={styles.comingSoonEmoji}>🚀</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.comingSoonTitle}>More Features Coming!</Text>
-            <Text style={styles.comingSoonSubtitle}>Patient records, prescriptions & billing</Text>
+        {todayCases.length === 0 ? (
+          <View style={styles.emptyBox}>
+            <Text style={styles.emptyText}>No cases scheduled for today</Text>
+            <TouchableOpacity onPress={openQuickAdd}><Text style={styles.emptyAction}>+ Add a case</Text></TouchableOpacity>
           </View>
-        </View>
+        ) : (
+          <View style={styles.caseList}>
+            {todayCases.map(c => (
+              <View key={c.id} testID={`today-case-${c.id}`} style={styles.caseCard}>
+                {c.forwarded_from ? (
+                  <View style={styles.forwardBadge}>
+                    <Text style={styles.forwardText}>↩ Forwarded by Dr. {c.forwarded_from}</Text>
+                  </View>
+                ) : null}
+                <View style={styles.caseRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.caseOwner}>{c.owner_name}</Text>
+                    <Text style={styles.caseVillage}>
+                      {c.village_name ? `📍 ${c.village_name}` : ''}
+                    </Text>
+                    <Text style={styles.caseMeta}>{c.animal_type} • {c.visit_reason}</Text>
+                  </View>
+                  <View style={styles.caseStatus}>
+                    <View style={[styles.statusBadge,
+                      c.status === 'closed' ? styles.statusClosed : styles.statusActive]}>
+                      <Text style={styles.statusText}>
+                        {c.status === 'closed' ? (c.is_paid ? '✓ Paid' : '✓ Unpaid') : 'Active'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.caseActions}>
+                  <TouchableOpacity
+                    testID={`call-btn-${c.id}`}
+                    style={styles.callBtn}
+                    onPress={() => callPhone(c.mobile)}
+                  >
+                    <Text style={styles.callBtnText}>📞 {c.mobile}</Text>
+                  </TouchableOpacity>
+                  {c.status !== 'closed' && c.status !== 'forwarded' && (
+                    <TouchableOpacity
+                      testID={`close-case-btn-${c.id}`}
+                      style={styles.closeBtn}
+                      onPress={() => openCloseCase(c)}
+                    >
+                      <Text style={styles.closeBtnText}>✓ Close</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Upcoming Cases mini */}
+        {upcomingCases.length > 0 && (
+          <>
+            <View style={styles.sectionRow}>
+              <Text style={styles.sectionTitle}>Upcoming ({upcomingCases.length})</Text>
+            </View>
+            <View style={styles.upcomingList}>
+              {upcomingCases.slice(0, 5).map(c => (
+                <View key={c.id} style={styles.upcomingCard}>
+                  <View style={styles.upcomingDate}>
+                    <Text style={styles.upcomingDateText}>{formatDate(c.visit_date)}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.upcomingName}>{c.owner_name}</Text>
+                    <Text style={styles.upcomingMeta}>{c.animal_type} • {c.village_name || c.visit_reason}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => callPhone(c.mobile)} style={styles.miniCallBtn}>
+                    <Text style={{ fontSize: 18 }}>📞</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+
+        <View style={{ height: 100 }} />
       </ScrollView>
 
       {/* FAB */}
-      <Animated.View style={[styles.fabContainer, { transform: [{ scale: fabAnim }] }]}>
-        <TouchableOpacity testID="fab-quick-add" style={styles.fab} onPress={openQuickAdd} activeOpacity={0.85}>
+      <Animated.View style={[styles.fabWrap, { transform: [{ scale: fabAnim }] }]}>
+        <TouchableOpacity testID="fab-quick-add" style={styles.fab} onPress={openQuickAdd}>
           <Text style={styles.fabIcon}>+</Text>
           <Text style={styles.fabLabel}>Quick Add</Text>
         </TouchableOpacity>
@@ -280,26 +360,33 @@ export default function DashboardScreen() {
       <Modal visible={showQuickAdd} transparent animationType="slide" onRequestClose={() => setShowQuickAdd(false)}>
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%' }}>
-            <View style={styles.modalSheet}>
-              <View style={styles.modalHandle} />
-
-              <View style={styles.modalHeader}>
+            <View style={styles.sheet}>
+              <View style={styles.sheetHandle} />
+              <View style={styles.sheetHeader}>
                 <View>
-                  <Text style={styles.modalTitle}>Quick Add Case</Text>
-                  <Text style={styles.modalSubtitle}>Add a walk-in or call lead</Text>
+                  <Text style={styles.sheetTitle}>Quick Add Case</Text>
+                  <Text style={styles.sheetSub}>Walk-in or call lead</Text>
                 </View>
-                <TouchableOpacity testID="close-quick-add" onPress={() => setShowQuickAdd(false)} style={styles.closeBtn}>
-                  <Text style={styles.closeBtnText}>✕</Text>
+                <TouchableOpacity testID="close-quick-add" onPress={() => setShowQuickAdd(false)} style={styles.xBtn}>
+                  <Text style={styles.xBtnText}>✕</Text>
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.modalScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                {/* Mobile + Contacts */}
+              <ScrollView style={styles.sheetScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                {/* Visit Date */}
+                <Text style={styles.inputLabel}>VISIT DATE</Text>
+                <TouchableOpacity testID="date-picker-btn" style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
+                  <Text style={styles.dateEmoji}>📅</Text>
+                  <Text style={styles.dateBtnText}>{formatDateLabel(visitDate)}</Text>
+                  <Text style={styles.dateSub}>{visitDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</Text>
+                </TouchableOpacity>
+
+                {/* Mobile */}
                 <Text style={styles.inputLabel}>MOBILE NUMBER</Text>
                 <View style={styles.mobileRow}>
                   <TextInput
                     testID="quick-mobile-input"
-                    style={[styles.modalInput, { flex: 1 }]}
+                    style={[styles.input, { flex: 1 }]}
                     placeholder="10-digit number"
                     placeholderTextColor="#9EB09F"
                     keyboardType="phone-pad"
@@ -307,92 +394,87 @@ export default function DashboardScreen() {
                     onChangeText={v => setQuickForm(f => ({ ...f, mobile: v.replace(/\D/g, '').slice(0, 10) }))}
                     maxLength={10}
                   />
-                  <TouchableOpacity
-                    testID="pick-contact-btn"
-                    style={styles.contactBtn}
-                    onPress={pickFromContacts}
-                  >
-                    <Text style={styles.contactBtnEmoji}>📱</Text>
-                    <Text style={styles.contactBtnText}>Contacts</Text>
+                  <TouchableOpacity testID="pick-contact-btn" style={styles.contactBtn} onPress={pickFromContacts}>
+                    <Text style={{ fontSize: 18 }}>📱</Text>
+                    <Text style={styles.contactBtnLabel}>Contacts</Text>
                   </TouchableOpacity>
                 </View>
 
+                {/* Owner Name */}
                 <Text style={styles.inputLabel}>OWNER NAME</Text>
                 <TextInput
                   testID="quick-owner-input"
-                  style={styles.modalInput}
+                  style={styles.input}
                   placeholder="Pet owner's name"
                   placeholderTextColor="#9EB09F"
                   value={quickForm.owner_name}
                   onChangeText={v => setQuickForm(f => ({ ...f, owner_name: v }))}
                 />
 
-                {/* Animal + Reason - side by side */}
+                {/* Village */}
+                <Text style={styles.inputLabel}>VILLAGE / AREA</Text>
+                <TextInput
+                  testID="quick-village-input"
+                  style={styles.input}
+                  placeholder="Village or area name"
+                  placeholderTextColor="#9EB09F"
+                  value={quickForm.village_name}
+                  onChangeText={handleVillageChange}
+                  onFocus={() => { if (quickForm.village_name) setShowVillageSug(true); }}
+                />
+                {showVillageSug && (
+                  <View style={styles.villageDropdown}>
+                    {villageSuggestions.map(v => (
+                      <TouchableOpacity key={v} testID={`village-sug-${v}`}
+                        style={styles.villageItem}
+                        onPress={() => { setQuickForm(f => ({ ...f, village_name: v })); setShowVillageSug(false); }}>
+                        <Text style={styles.villageItemText}>📍 {v}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {/* Animal + Reason */}
                 <View style={styles.rowInputs}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.inputLabel}>ANIMAL TYPE</Text>
-                    <TouchableOpacity
-                      testID="animal-type-picker"
-                      style={styles.pickerBtn}
-                      onPress={() => setPickerType('animal')}
-                    >
-                      <Text style={[styles.pickerText, !quickForm.animal_type && styles.pickerPlaceholder]}>
+                    <TouchableOpacity testID="animal-type-picker" style={styles.pickerBtn} onPress={() => setPickerType('animal')}>
+                      <Text style={[styles.pickerText, !quickForm.animal_type && { color: '#9EB09F' }]}>
                         {quickForm.animal_type || 'Select'}
                       </Text>
-                      <Text style={styles.pickerArrow}>▼</Text>
+                      <Text style={{ fontSize: 10, color: C.sub }}>▼</Text>
                     </TouchableOpacity>
                   </View>
-                  <View style={{ width: 12 }} />
+                  <View style={{ width: 10 }} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.inputLabel}>VISIT REASON</Text>
-                    <TouchableOpacity
-                      testID="visit-reason-picker"
-                      style={styles.pickerBtn}
-                      onPress={() => setPickerType('reason')}
-                    >
-                      <Text style={[styles.pickerText, !quickForm.visit_reason && styles.pickerPlaceholder]}>
+                    <TouchableOpacity testID="visit-reason-picker" style={styles.pickerBtn} onPress={() => setPickerType('reason')}>
+                      <Text style={[styles.pickerText, !quickForm.visit_reason && { color: '#9EB09F' }]}>
                         {quickForm.visit_reason || 'Select'}
                       </Text>
-                      <Text style={styles.pickerArrow}>▼</Text>
+                      <Text style={{ fontSize: 10, color: C.sub }}>▼</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
 
-                <Text style={styles.inputLabel}>ESTIMATED AMOUNT (₹) <Text style={styles.optionalTag}>Optional</Text></Text>
-                <TextInput
-                  testID="quick-amount-input"
-                  style={styles.modalInput}
-                  placeholder="e.g. 500"
-                  placeholderTextColor="#9EB09F"
-                  keyboardType="numeric"
-                  value={quickForm.estimated_amount}
-                  onChangeText={v => setQuickForm(f => ({ ...f, estimated_amount: v }))}
-                />
-
-                <Text style={styles.inputLabel}>NOTES <Text style={styles.optionalTag}>Optional</Text></Text>
+                {/* Notes */}
+                <Text style={styles.inputLabel}>NOTES <Text style={{ color: '#9EB09F', fontSize: 10 }}>Optional</Text></Text>
                 <TextInput
                   testID="quick-notes-input"
-                  style={[styles.modalInput, styles.notesInput]}
+                  style={[styles.input, { height: 64, paddingTop: 10, textAlignVertical: 'top' }]}
                   placeholder="Any quick notes..."
                   placeholderTextColor="#9EB09F"
                   multiline
-                  numberOfLines={2}
                   value={quickForm.notes}
                   onChangeText={v => setQuickForm(f => ({ ...f, notes: v }))}
                 />
 
-                <TouchableOpacity
-                  testID="save-case-btn"
-                  style={[styles.saveBtn, saving && styles.btnDisabled]}
-                  onPress={handleSaveCase}
-                  disabled={saving}
-                >
-                  {saving
-                    ? <ActivityIndicator color="#fff" />
-                    : <><Text style={styles.saveBtnEmoji}>✅</Text><Text style={styles.saveBtnText}>Save Case</Text></>
-                  }
+                <TouchableOpacity testID="save-case-btn"
+                  style={[styles.saveBtn, quickSaving && styles.btnDisabled]}
+                  onPress={saveQuickAdd} disabled={quickSaving}>
+                  {quickSaving ? <ActivityIndicator color="#fff" /> :
+                    <><Text style={{ fontSize: 16 }}>✅</Text><Text style={styles.saveBtnText}>Save Case</Text></>}
                 </TouchableOpacity>
-
                 <View style={{ height: 20 }} />
               </ScrollView>
             </View>
@@ -400,229 +482,258 @@ export default function DashboardScreen() {
         </View>
       </Modal>
 
-      {/* Mini picker modal (animal/reason) */}
+      {/* Date Picker */}
+      <DatePickerModal visible={showDatePicker} date={visitDate}
+        onSelect={d => setVisitDate(d)} onClose={() => setShowDatePicker(false)} />
+
+      {/* Animal / Reason Picker */}
       <Modal visible={!!pickerType} transparent animationType="fade" onRequestClose={() => setPickerType(null)}>
         <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setPickerType(null)}>
-          <View style={styles.pickerSheet} onStartShouldSetResponder={() => true}>
-            <Text style={styles.pickerTitle}>
-              {pickerType === 'animal' ? '🐾 Select Animal Type' : '🩺 Select Visit Reason'}
+          <View style={styles.chipSheet} onStartShouldSetResponder={() => true}>
+            <Text style={styles.chipTitle}>
+              {pickerType === 'animal' ? '🐾 Animal Type' : '🩺 Visit Reason'}
             </Text>
             <View style={styles.chipGrid}>
-              {(pickerType === 'animal' ? ANIMAL_TYPES : VISIT_REASONS).map(item => (
-                <TouchableOpacity
-                  key={item}
-                  testID={`picker-${item}`}
-                  style={[
-                    styles.chip,
-                    ((pickerType === 'animal' ? quickForm.animal_type : quickForm.visit_reason) === item) && styles.chipSelected,
-                  ]}
-                  onPress={() => {
-                    if (pickerType === 'animal') setQuickForm(f => ({ ...f, animal_type: item }));
-                    else setQuickForm(f => ({ ...f, visit_reason: item }));
-                    setPickerType(null);
-                  }}
-                >
-                  <Text style={[
-                    styles.chipText,
-                    ((pickerType === 'animal' ? quickForm.animal_type : quickForm.visit_reason) === item) && styles.chipTextSelected,
-                  ]}>{item}</Text>
-                </TouchableOpacity>
-              ))}
+              {(pickerType === 'animal' ? ANIMAL_TYPES : VISIT_REASONS).map(item => {
+                const sel = pickerType === 'animal' ? quickForm.animal_type === item : quickForm.visit_reason === item;
+                return (
+                  <TouchableOpacity key={item} testID={`picker-${item}`}
+                    style={[styles.chip, sel && styles.chipSel]}
+                    onPress={() => {
+                      if (pickerType === 'animal') setQuickForm(f => ({ ...f, animal_type: item }));
+                      else setQuickForm(f => ({ ...f, visit_reason: item }));
+                      setPickerType(null);
+                    }}>
+                    <Text style={[styles.chipText, sel && { color: '#fff' }]}>{item}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
         </TouchableOpacity>
       </Modal>
 
-      {/* Contact picker modal */}
+      {/* Contact Picker */}
       <Modal visible={showContactPicker} transparent animationType="slide" onRequestClose={() => setShowContactPicker(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { maxHeight: '80%' }]}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>📱 Pick Contact</Text>
-            <TextInput
-              style={[styles.modalInput, { marginHorizontal: 0, marginBottom: 8 }]}
-              placeholder="Search name or number..."
-              placeholderTextColor="#9EB09F"
-              value={contactSearch}
-              onChangeText={setContactSearch}
-            />
-            <FlatList
-              data={filteredContacts}
-              keyExtractor={(_, i) => i.toString()}
+          <View style={[styles.sheet, { maxHeight: '80%' }]}>
+            <View style={styles.sheetHandle} />
+            <Text style={[styles.sheetTitle, { textAlign: 'center', marginBottom: 8 }]}>📱 Pick Contact</Text>
+            <TextInput style={[styles.input, { marginBottom: 8 }]} placeholder="Search..." placeholderTextColor="#9EB09F"
+              value={contactSearch} onChangeText={setContactSearch} />
+            <FlatList data={filteredContacts} keyExtractor={(_, i) => `${i}`}
               renderItem={({ item }) => (
-                <TouchableOpacity
-                  testID={`contact-item-${item.phone}`}
-                  style={styles.contactItem}
-                  onPress={() => selectContact(item)}
-                >
-                  <View style={styles.contactAvatar}>
-                    <Text style={styles.contactAvatarText}>{item.name[0]?.toUpperCase() || '?'}</Text>
-                  </View>
-                  <View>
-                    <Text style={styles.contactName}>{item.name}</Text>
-                    <Text style={styles.contactPhone}>{item.phone}</Text>
-                  </View>
+                <TouchableOpacity style={styles.contactItem} onPress={() => {
+                  setQuickForm(f => ({ ...f, owner_name: item.name, mobile: item.phone.replace(/\D/g, '').slice(-10) }));
+                  setShowContactPicker(false);
+                }}>
+                  <View style={styles.contactAvatar}><Text style={styles.contactAvatarText}>{item.name[0]?.toUpperCase()}</Text></View>
+                  <View><Text style={styles.contactName}>{item.name}</Text><Text style={styles.contactPhone}>{item.phone}</Text></View>
                 </TouchableOpacity>
-              )}
-              style={{ maxHeight: 400 }}
-            />
+              )} style={{ maxHeight: 360 }} />
           </View>
         </View>
       </Modal>
+
+      {/* Close Case Modal */}
+      <Modal visible={!!closeCase} transparent animationType="slide" onRequestClose={() => setCloseCase(null)}>
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%' }}>
+            <View style={styles.sheet}>
+              <View style={styles.sheetHandle} />
+              <View style={styles.sheetHeader}>
+                <View>
+                  <Text style={styles.sheetTitle}>Close Case</Text>
+                  <Text style={styles.sheetSub}>{closeCase?.owner_name} • {closeCase?.animal_type}</Text>
+                </View>
+                <TouchableOpacity style={styles.xBtn} onPress={() => setCloseCase(null)}>
+                  <Text style={styles.xBtnText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.sheetScroll} keyboardShouldPersistTaps="handled">
+                <Text style={styles.inputLabel}>AMOUNT CHARGED (₹)</Text>
+                <TextInput
+                  testID="close-amount-input"
+                  style={styles.input}
+                  placeholder="Enter amount (0 if free)"
+                  placeholderTextColor="#9EB09F"
+                  keyboardType="numeric"
+                  value={closeForm.amount}
+                  onChangeText={v => setCloseForm(f => ({ ...f, amount: v }))}
+                />
+
+                <Text style={styles.inputLabel}>PAYMENT MODE</Text>
+                <View style={styles.chipGrid}>
+                  {PAYMENT_MODES.map(m => (
+                    <TouchableOpacity key={m} testID={`pay-mode-${m}`}
+                      style={[styles.chip, closeForm.payment_mode === m && styles.chipSel]}
+                      onPress={() => setCloseForm(f => ({ ...f, payment_mode: m }))}>
+                      <Text style={[styles.chipText, closeForm.payment_mode === m && { color: '#fff' }]}>{m}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={[styles.inputLabel, { marginTop: 16 }]}>PAYMENT STATUS</Text>
+                <View style={styles.toggleRow}>
+                  <TouchableOpacity testID="paid-yes-btn"
+                    style={[styles.toggleBtn, closeForm.is_paid && styles.toggleBtnActive]}
+                    onPress={() => setCloseForm(f => ({ ...f, is_paid: true }))}>
+                    <Text style={[styles.toggleText, closeForm.is_paid && { color: '#fff' }]}>✓ Paid Now</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity testID="paid-no-btn"
+                    style={[styles.toggleBtn, !closeForm.is_paid && styles.toggleBtnWarn]}
+                    onPress={() => setCloseForm(f => ({ ...f, is_paid: false }))}>
+                    <Text style={[styles.toggleText, !closeForm.is_paid && { color: '#fff' }]}>⏳ Collect Later</Text>
+                  </TouchableOpacity>
+                </View>
+                {!closeForm.is_paid && (
+                  <View style={styles.infoBox}>
+                    <Text style={styles.infoText}>💡 This will appear in your Outstanding Ledger</Text>
+                  </View>
+                )}
+
+                <Text style={[styles.inputLabel, { marginTop: 16 }]}>FOLLOW-UP NEEDED?</Text>
+                <View style={styles.toggleRow}>
+                  <TouchableOpacity testID="followup-yes-btn"
+                    style={[styles.toggleBtn, showFollowUp && styles.toggleBtnActive]}
+                    onPress={() => setShowFollowUp(true)}>
+                    <Text style={[styles.toggleText, showFollowUp && { color: '#fff' }]}>📅 Yes</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity testID="followup-no-btn"
+                    style={[styles.toggleBtn, !showFollowUp && styles.toggleBtnActive]}
+                    onPress={() => setShowFollowUp(false)}>
+                    <Text style={[styles.toggleText, !showFollowUp && { color: '#fff' }]}>✕ No</Text>
+                  </TouchableOpacity>
+                </View>
+                {showFollowUp && (
+                  <TouchableOpacity testID="followup-date-btn" style={styles.dateBtn} onPress={() => setShowFollowUpPicker(true)}>
+                    <Text style={styles.dateEmoji}>📅</Text>
+                    <Text style={styles.dateBtnText}>Follow-up: {formatDateLabel(followUpDate)}</Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity testID="confirm-close-btn"
+                  style={[styles.saveBtn, closeSaving && styles.btnDisabled]}
+                  onPress={saveClose} disabled={closeSaving}>
+                  {closeSaving ? <ActivityIndicator color="#fff" /> :
+                    <><Text style={{ fontSize: 16 }}>✅</Text><Text style={styles.saveBtnText}>Confirm & Close Case</Text></>}
+                </TouchableOpacity>
+                <View style={{ height: 20 }} />
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* Follow-up Date Picker */}
+      <DatePickerModal visible={showFollowUpPicker} date={followUpDate}
+        onSelect={d => setFollowUpDate(d)} onClose={() => setShowFollowUpPicker(false)} />
     </SafeAreaView>
   );
 }
 
-const C = {
-  primary: '#2E7D32', primaryLight: '#4CAF50',
-  bg: '#FDFBF7', surface: '#FFFFFF', surfaceSecondary: '#E8F5E9',
-  textPrimary: '#0A1F10', textSecondary: '#4A5D4E', border: '#E0E8E1',
-};
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
-  scroll: { flex: 1 },
-  scrollContent: { paddingBottom: 32 },
-  centerLoader: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-    paddingHorizontal: 24, paddingTop: 20, paddingBottom: 8,
-  },
-  headerLeft: { flex: 1 },
-  greeting: { fontSize: 14, color: C.textSecondary },
-  doctorName: { fontSize: 22, fontWeight: '800', color: C.textPrimary, marginTop: 2 },
-  regNo: { fontSize: 12, color: C.textSecondary, marginTop: 2 },
-  avatarBtn: {
-    width: 48, height: 48, borderRadius: 24, backgroundColor: C.surfaceSecondary,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  avatarEmoji: { fontSize: 24 },
-  locationPill: {
-    marginHorizontal: 24, marginBottom: 20, backgroundColor: C.surfaceSecondary,
-    borderRadius: 20, paddingVertical: 8, paddingHorizontal: 16, alignSelf: 'flex-start',
-  },
-  locationText: { fontSize: 13, color: C.primary, fontWeight: '500' },
-  sectionHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 24, marginBottom: 12,
-  },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: C.textPrimary },
-  refreshText: { fontSize: 14, color: C.primaryLight, fontWeight: '600' },
-  loadingBox: { paddingVertical: 40, alignItems: 'center' },
-  loadingText: { marginTop: 12, fontSize: 14, color: C.textSecondary },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16, gap: 12, marginBottom: 24 },
-  card: {
-    width: '47%', borderRadius: 20, padding: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04, shadowRadius: 8, elevation: 2, minHeight: 110,
-  },
-  emojiWrap: {
-    width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.7)',
-    justifyContent: 'center', alignItems: 'center', marginBottom: 8,
-  },
-  cardEmoji: { fontSize: 20 },
-  cardNumber: { fontSize: 26, fontWeight: '800', marginBottom: 4 },
-  cardLabel: { fontSize: 13, fontWeight: '500', color: C.textSecondary, lineHeight: 18 },
-  actionsRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginBottom: 24 },
-  actionBtn: {
-    flex: 1, backgroundColor: C.surface, borderRadius: 16, padding: 12,
-    alignItems: 'center', borderWidth: 1, borderColor: C.border,
-  },
-  actionEmoji: { fontSize: 24, marginBottom: 6 },
-  actionText: { fontSize: 11, fontWeight: '600', color: C.textSecondary, textAlign: 'center' },
-  comingSoonBanner: {
-    marginHorizontal: 16, backgroundColor: C.primary, borderRadius: 20,
-    padding: 20, flexDirection: 'row', alignItems: 'center', gap: 16,
-  },
-  comingSoonEmoji: { fontSize: 36 },
-  comingSoonTitle: { fontSize: 16, fontWeight: '700', color: '#fff', marginBottom: 4 },
-  comingSoonSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.8)' },
-
+  scroll: { flex: 1 }, scrollContent: { paddingBottom: 16 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg },
+  header: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 24, paddingTop: 20, paddingBottom: 8 },
+  greeting: { fontSize: 13, color: C.sub },
+  name: { fontSize: 22, fontWeight: '800', color: C.text, marginTop: 2 },
+  reg: { fontSize: 12, color: C.sub },
+  avatarBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: C.secondary, justifyContent: 'center', alignItems: 'center' },
+  locPill: { marginHorizontal: 24, marginBottom: 16, backgroundColor: C.secondary, borderRadius: 20, paddingVertical: 7, paddingHorizontal: 14, alignSelf: 'flex-start' },
+  locText: { fontSize: 12, color: C.primary, fontWeight: '500' },
+  sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, marginBottom: 10 },
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: C.text },
+  refreshBtn: { fontSize: 13, color: C.primaryLight, fontWeight: '600' },
+  loadBox: { paddingVertical: 32, alignItems: 'center' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16, gap: 10, marginBottom: 20 },
+  card: { width: '47%', borderRadius: 18, padding: 14, minHeight: 100, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
+  emojiWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.7)', justifyContent: 'center', alignItems: 'center', marginBottom: 6 },
+  statNum: { fontSize: 24, fontWeight: '800', marginBottom: 2 },
+  statLabel: { fontSize: 12, fontWeight: '500', color: C.sub, lineHeight: 16 },
+  // Cases
+  caseList: { paddingHorizontal: 16, gap: 10, marginBottom: 20 },
+  caseCard: { backgroundColor: C.surface, borderRadius: 16, padding: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  forwardBadge: { backgroundColor: '#E3F2FD', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, marginBottom: 8, alignSelf: 'flex-start' },
+  forwardText: { fontSize: 11, color: C.blue, fontWeight: '600' },
+  caseRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
+  caseOwner: { fontSize: 16, fontWeight: '700', color: C.text },
+  caseVillage: { fontSize: 12, color: C.sub, marginTop: 1 },
+  caseMeta: { fontSize: 12, color: C.sub, marginTop: 2 },
+  caseStatus: { marginLeft: 8 },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  statusActive: { backgroundColor: C.secondary },
+  statusClosed: { backgroundColor: '#E3F2FD' },
+  statusText: { fontSize: 11, fontWeight: '700', color: C.primary },
+  caseActions: { flexDirection: 'row', gap: 8 },
+  callBtn: { flex: 1, backgroundColor: C.secondary, borderRadius: 10, paddingVertical: 8, alignItems: 'center' },
+  callBtnText: { fontSize: 13, fontWeight: '600', color: C.primary },
+  closeBtn: { backgroundColor: C.primary, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 16, alignItems: 'center' },
+  closeBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  emptyBox: { paddingHorizontal: 24, paddingVertical: 16 },
+  emptyText: { fontSize: 14, color: C.sub, marginBottom: 6 },
+  emptyAction: { fontSize: 14, color: C.primary, fontWeight: '600' },
+  // Upcoming
+  upcomingList: { paddingHorizontal: 16, gap: 8, marginBottom: 20 },
+  upcomingCard: { backgroundColor: C.surface, borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: C.border },
+  upcomingDate: { backgroundColor: C.secondary, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, minWidth: 64, alignItems: 'center' },
+  upcomingDateText: { fontSize: 12, fontWeight: '700', color: C.primary },
+  upcomingName: { fontSize: 14, fontWeight: '600', color: C.text },
+  upcomingMeta: { fontSize: 12, color: C.sub },
+  miniCallBtn: { padding: 6 },
   // FAB
-  fabContainer: {
-    position: 'absolute', bottom: 24, right: 20,
-    shadowColor: C.primary, shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
-  },
-  fab: {
-    backgroundColor: C.primary, borderRadius: 28,
-    paddingHorizontal: 20, paddingVertical: 14,
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-  },
+  fabWrap: { position: 'absolute', bottom: 24, right: 20, shadowColor: C.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
+  fab: { backgroundColor: C.primary, borderRadius: 28, paddingHorizontal: 20, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
   fabIcon: { fontSize: 22, color: '#fff', fontWeight: '800' },
   fabLabel: { fontSize: 15, fontWeight: '700', color: '#fff' },
-
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
-  modalSheet: {
-    backgroundColor: C.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 32 : 16,
-  },
-  modalHandle: { width: 40, height: 4, backgroundColor: C.border, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 4 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 12 },
-  modalTitle: { fontSize: 20, fontWeight: '800', color: C.textPrimary },
-  modalSubtitle: { fontSize: 13, color: C.textSecondary, marginTop: 2 },
-  closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F0F4F1', justifyContent: 'center', alignItems: 'center' },
-  closeBtnText: { fontSize: 14, color: C.textSecondary, fontWeight: '700' },
-  modalScroll: { maxHeight: 480 },
-  inputLabel: { fontSize: 11, fontWeight: '600', color: C.textSecondary, letterSpacing: 0.8, marginBottom: 6, marginTop: 14 },
-  optionalTag: { fontSize: 10, color: '#9EB09F', fontWeight: '400', textTransform: 'none' },
-  modalInput: {
-    height: 52, borderRadius: 12, borderWidth: 1, borderColor: C.border,
-    backgroundColor: '#FDFBF7', paddingHorizontal: 14, fontSize: 15, color: C.textPrimary,
-  },
+  sheet: { backgroundColor: C.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 32 : 16 },
+  sheetHandle: { width: 40, height: 4, backgroundColor: C.border, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 4 },
+  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 10 },
+  sheetTitle: { fontSize: 19, fontWeight: '800', color: C.text },
+  sheetSub: { fontSize: 12, color: C.sub, marginTop: 2 },
+  xBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#F0F4F1', justifyContent: 'center', alignItems: 'center' },
+  xBtnText: { fontSize: 13, color: C.sub, fontWeight: '700' },
+  sheetScroll: { maxHeight: 500 },
+  inputLabel: { fontSize: 11, fontWeight: '600', color: C.sub, letterSpacing: 0.8, marginBottom: 6, marginTop: 14 },
+  input: { height: 50, borderRadius: 12, borderWidth: 1, borderColor: C.border, backgroundColor: '#FDFBF7', paddingHorizontal: 14, fontSize: 15, color: C.text },
+  dateBtn: { height: 54, borderRadius: 12, borderWidth: 1, borderColor: C.primary, backgroundColor: C.secondary, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dateEmoji: { fontSize: 20 },
+  dateBtnText: { fontSize: 15, fontWeight: '700', color: C.primary },
+  dateSub: { fontSize: 12, color: C.sub, marginLeft: 4 },
   mobileRow: { flexDirection: 'row', gap: 8 },
-  contactBtn: {
-    height: 52, backgroundColor: C.surfaceSecondary, borderRadius: 12,
-    paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: C.border,
-  },
-  contactBtnEmoji: { fontSize: 18 },
-  contactBtnText: { fontSize: 10, color: C.primary, fontWeight: '600', marginTop: 2 },
+  contactBtn: { height: 50, backgroundColor: C.secondary, borderRadius: 12, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border },
+  contactBtnLabel: { fontSize: 10, color: C.primary, fontWeight: '600', marginTop: 2 },
+  villageDropdown: { backgroundColor: C.surface, borderRadius: 10, borderWidth: 1, borderColor: C.border, marginTop: -6, marginBottom: 4 },
+  villageItem: { paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: '#F0F4F1' },
+  villageItemText: { fontSize: 14, color: C.text },
   rowInputs: { flexDirection: 'row' },
-  pickerBtn: {
-    height: 52, borderRadius: 12, borderWidth: 1, borderColor: C.border,
-    backgroundColor: '#FDFBF7', paddingHorizontal: 12,
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-  },
-  pickerText: { fontSize: 14, color: C.textPrimary, flex: 1 },
-  pickerPlaceholder: { color: '#9EB09F' },
-  pickerArrow: { fontSize: 10, color: C.textSecondary },
-  notesInput: { height: 72, paddingTop: 12, textAlignVertical: 'top' },
-  saveBtn: {
-    height: 56, backgroundColor: C.primary, borderRadius: 16,
-    flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
-    gap: 8, marginTop: 20,
-    shadowColor: C.primary, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
-  },
+  pickerBtn: { height: 50, borderRadius: 12, borderWidth: 1, borderColor: C.border, backgroundColor: '#FDFBF7', paddingHorizontal: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  pickerText: { fontSize: 14, color: C.text, flex: 1 },
+  saveBtn: { height: 54, backgroundColor: C.primary, borderRadius: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 18 },
   btnDisabled: { opacity: 0.6 },
-  saveBtnEmoji: { fontSize: 18 },
   saveBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
-
-  // Picker chips
+  toggleRow: { flexDirection: 'row', gap: 10 },
+  toggleBtn: { flex: 1, height: 46, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, justifyContent: 'center', alignItems: 'center' },
+  toggleBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
+  toggleBtnWarn: { backgroundColor: C.warning, borderColor: C.warning },
+  toggleText: { fontSize: 14, fontWeight: '600', color: C.text },
+  infoBox: { backgroundColor: '#FFF8E1', borderRadius: 10, padding: 10, marginTop: 8 },
+  infoText: { fontSize: 13, color: C.warning },
+  // Chip picker
   pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', paddingHorizontal: 16 },
-  pickerSheet: { backgroundColor: C.surface, borderRadius: 24, padding: 20 },
-  pickerTitle: { fontSize: 18, fontWeight: '700', color: C.textPrimary, marginBottom: 16, textAlign: 'center' },
+  chipSheet: { backgroundColor: C.surface, borderRadius: 20, padding: 20 },
+  chipTitle: { fontSize: 17, fontWeight: '700', color: C.text, marginBottom: 14, textAlign: 'center' },
   chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20,
-    backgroundColor: C.surfaceSecondary, borderWidth: 1.5, borderColor: C.border,
-  },
-  chipSelected: { backgroundColor: C.primary, borderColor: C.primary },
-  chipText: { fontSize: 14, fontWeight: '600', color: C.textPrimary },
-  chipTextSelected: { color: '#fff' },
-
-  // Contact picker
-  contactItem: {
-    flexDirection: 'row', alignItems: 'center', paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: '#F0F4F1', gap: 12,
-  },
-  contactAvatar: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: C.surfaceSecondary,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  contactAvatarText: { fontSize: 16, fontWeight: '700', color: C.primary },
-  contactName: { fontSize: 15, fontWeight: '600', color: C.textPrimary },
-  contactPhone: { fontSize: 13, color: C.textSecondary, marginTop: 2 },
+  chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 18, backgroundColor: C.secondary, borderWidth: 1.5, borderColor: C.border },
+  chipSel: { backgroundColor: C.primary, borderColor: C.primary },
+  chipText: { fontSize: 13, fontWeight: '600', color: C.text },
+  // Contacts
+  contactItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F0F4F1', gap: 12 },
+  contactAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: C.secondary, justifyContent: 'center', alignItems: 'center' },
+  contactAvatarText: { fontSize: 15, fontWeight: '700', color: C.primary },
+  contactName: { fontSize: 14, fontWeight: '600', color: C.text },
+  contactPhone: { fontSize: 12, color: C.sub },
 });
