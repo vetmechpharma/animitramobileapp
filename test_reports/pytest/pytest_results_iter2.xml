@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="4" failures="0" skipped="0" tests="5" time="0.812" timestamp="2026-04-06T09:38:44.747407+00:00" hostname="agent-env-eb79e4f9-54aa-4d30-9685-a50aae3eb812"><testcase classname="backend.tests.test_quick_add" name="test_quick_add_creates_case" time="0.505"><error message="failed on setup with &quot;KeyError: 'access_token'&quot;">backend/tests/test_quick_add.py:12: in auth_token
+    return res.json()["access_token"]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'access_token'</error></testcase><testcase classname="backend.tests.test_quick_add" name="test_quick_add_requires_auth" time="0.137" /><testcase classname="backend.tests.test_quick_add" name="test_quick_add_missing_fields" time="0.000"><error message="failed on setup with &quot;KeyError: 'access_token'&quot;">backend/tests/test_quick_add.py:12: in auth_token
+    return res.json()["access_token"]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'access_token'</error></testcase><testcase classname="backend.tests.test_quick_add" name="test_list_cases" time="0.000"><error message="failed on setup with &quot;KeyError: 'access_token'&quot;">backend/tests/test_quick_add.py:12: in auth_token
+    return res.json()["access_token"]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'access_token'</error></testcase><testcase classname="backend.tests.test_quick_add" name="test_dashboard_stats_after_quick_add" time="0.000"><error message="failed on setup with &quot;KeyError: 'access_token'&quot;">backend/tests/test_quick_add.py:12: in auth_token
+    return res.json()["access_token"]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'access_token'</error></testcase></testsuite></testsuites>

@@ -435,6 +435,70 @@ async def dashboard_stats(user=Depends(get_current_user)):
     }
 
 
+# ─────────────────────────── quick case / lead ────────────────────────────────
+
+class QuickCaseRequest(BaseModel):
+    owner_name: str
+    mobile: str
+    animal_type: str
+    visit_reason: str
+    estimated_amount: Optional[float] = 0.0
+    notes: Optional[str] = ""
+
+
+@api_router.post("/cases/quick-add")
+async def quick_add_case(data: QuickCaseRequest, user=Depends(get_current_user)):
+    case_doc = {
+        "vet_id": user["id"],
+        "owner_name": data.owner_name,
+        "mobile": data.mobile,
+        "animal_type": data.animal_type,
+        "visit_reason": data.visit_reason,
+        "amount": data.estimated_amount or 0.0,
+        "notes": data.notes or "",
+        "status": "pending",
+        "is_paid": False,
+        "paid_at": None,
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+    }
+    result = await db.cases.insert_one(case_doc)
+    return {
+        "success": True,
+        "message": "Case added successfully",
+        "case_id": str(result.inserted_id),
+    }
+
+
+@api_router.get("/cases")
+async def list_cases(
+    status: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+    user=Depends(get_current_user)
+):
+    query: dict = {"vet_id": user["id"]}
+    if status:
+        query["status"] = status
+    total = await db.cases.count_documents(query)
+    cursor = db.cases.find(query).sort("created_at", -1).skip(skip).limit(limit)
+    cases = []
+    async for c in cursor:
+        cases.append({
+            "id": str(c["_id"]),
+            "owner_name": c["owner_name"],
+            "mobile": c["mobile"],
+            "animal_type": c["animal_type"],
+            "visit_reason": c["visit_reason"],
+            "amount": c.get("amount", 0),
+            "notes": c.get("notes", ""),
+            "status": c["status"],
+            "is_paid": c.get("is_paid", False),
+            "created_at": c["created_at"].isoformat(),
+        })
+    return {"total": total, "cases": cases}
+
+
 # ─────────────────────────── health ────────────────────────────────────────────
 
 @api_router.get("/")
