@@ -16,9 +16,10 @@ const VISIT_REASONS = ['Vaccination', 'Check-up', 'Treatment', 'Emergency', 'Sur
 const PAYMENT_MODES = ['Cash', 'GPay', 'Online', 'Cheque', 'Other'];
 
 const C = {
-  primary: '#2E7D32', primaryLight: '#4CAF50', bg: '#FDFBF7', surface: '#FFFFFF',
-  secondary: '#E8F5E9', text: '#0A1F10', sub: '#4A5D4E', border: '#E0E8E1',
-  warning: '#F57F17', error: '#D32F2F', blue: '#1565C0',
+  primary: '#2E7D32', primaryLight: '#4CAF50', bg: '#F6FBF6', surface: '#FFFFFF',
+  secondary: '#E8F5E9', fill: '#EDF7EE', fillFocus: '#E0F0E1',
+  text: '#0A1F10', sub: '#5A7060', border: '#D4EAD6',
+  warning: '#E65100', error: '#C62828', blue: '#1565C0',
 };
 
 function formatDate(iso: string): string {
@@ -689,7 +690,7 @@ const styles = StyleSheet.create({
   fabLabel: { fontSize: 15, fontWeight: '700', color: '#fff' },
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: C.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 32 : 16 },
+  sheet: { backgroundColor: C.surface, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 32 : 16 },
   sheetHandle: { width: 40, height: 4, backgroundColor: C.border, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 4 },
   sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 10 },
   sheetTitle: { fontSize: 19, fontWeight: '800', color: C.text },
@@ -698,7 +699,7 @@ const styles = StyleSheet.create({
   xBtnText: { fontSize: 13, color: C.sub, fontWeight: '700' },
   sheetScroll: { maxHeight: 500 },
   inputLabel: { fontSize: 11, fontWeight: '600', color: C.sub, letterSpacing: 0.8, marginBottom: 6, marginTop: 14 },
-  input: { height: 50, borderRadius: 12, borderWidth: 1, borderColor: C.border, backgroundColor: '#FDFBF7', paddingHorizontal: 14, fontSize: 15, color: C.text },
+  input: { height: 50, borderRadius: 14, backgroundColor: C.fill, paddingHorizontal: 14, fontSize: 15, color: C.text },
   dateBtn: { height: 54, borderRadius: 12, borderWidth: 1, borderColor: C.primary, backgroundColor: C.secondary, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
   dateEmoji: { fontSize: 20 },
   dateBtnText: { fontSize: 15, fontWeight: '700', color: C.primary },
@@ -710,7 +711,7 @@ const styles = StyleSheet.create({
   villageItem: { paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: '#F0F4F1' },
   villageItemText: { fontSize: 14, color: C.text },
   rowInputs: { flexDirection: 'row' },
-  pickerBtn: { height: 50, borderRadius: 12, borderWidth: 1, borderColor: C.border, backgroundColor: '#FDFBF7', paddingHorizontal: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  pickerBtn: { height: 50, borderRadius: 14, backgroundColor: C.fill, paddingHorizontal: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   pickerText: { fontSize: 14, color: C.text, flex: 1 },
   saveBtn: { height: 54, backgroundColor: C.primary, borderRadius: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 18 },
   btnDisabled: { opacity: 0.6 },
@@ -727,7 +728,7 @@ const styles = StyleSheet.create({
   chipSheet: { backgroundColor: C.surface, borderRadius: 20, padding: 20 },
   chipTitle: { fontSize: 17, fontWeight: '700', color: C.text, marginBottom: 14, textAlign: 'center' },
   chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 18, backgroundColor: C.secondary, borderWidth: 1.5, borderColor: C.border },
+  chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 50, backgroundColor: C.fill },
   chipSel: { backgroundColor: C.primary, borderColor: C.primary },
   chipText: { fontSize: 13, fontWeight: '600', color: C.text },
   // Contacts

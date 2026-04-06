@@ -11,9 +11,10 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 const PAYMENT_MODES = ['Cash', 'GPay', 'Online', 'Cheque', 'Other'];
 
 const C = {
-  primary: '#2E7D32', bg: '#FDFBF7', surface: '#FFFFFF', secondary: '#E8F5E9',
-  text: '#0A1F10', sub: '#4A5D4E', border: '#E0E8E1',
-  warning: '#F57F17', error: '#D32F2F', blue: '#1565C0',
+  primary: '#2E7D32', bg: '#F6FBF6', surface: '#FFFFFF', secondary: '#E8F5E9',
+  fill: '#EDF7EE', fillFocus: '#E0F0E1',
+  text: '#0A1F10', sub: '#5A7060', border: '#D4EAD6',
+  warning: '#E65100', error: '#C62828', blue: '#1565C0',
 };
 
 const TABS = [
@@ -388,10 +389,10 @@ const styles = StyleSheet.create({
   xBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#F0F4F1', justifyContent: 'center', alignItems: 'center' },
   xText: { fontSize: 13, color: C.sub, fontWeight: '700' },
   label: { fontSize: 11, fontWeight: '600', color: C.sub, letterSpacing: 0.8, marginBottom: 6, marginTop: 14 },
-  input: { height: 50, borderRadius: 12, borderWidth: 1, borderColor: C.border, backgroundColor: '#FDFBF7', paddingHorizontal: 14, fontSize: 15, color: C.text },
+  input: { height: 50, borderRadius: 14, backgroundColor: C.fill, paddingHorizontal: 14, fontSize: 15, color: C.text },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, backgroundColor: C.secondary, borderWidth: 1.5, borderColor: C.border },
-  chipSel: { backgroundColor: C.primary, borderColor: C.primary },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 50, backgroundColor: C.fill },
+  chipSel: { backgroundColor: C.primary },
   chipText: { fontSize: 13, fontWeight: '600', color: C.text },
   toggleRow: { flexDirection: 'row', gap: 10 },
   toggleBtn: { flex: 1, height: 44, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, justifyContent: 'center', alignItems: 'center' },
