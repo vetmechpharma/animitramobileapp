@@ -63,10 +63,18 @@
 
 ## Prioritized Backlog
 
+### Done (Phase 2 - April 2026)
+- [x] Floating Quick Add (FAB) button on Dashboard
+- [x] Quick Add modal: Mobile + Contacts picker + Owner Name + Animal Type chips + Visit Reason chips + Amount + Notes
+- [x] POST /api/cases/quick-add endpoint — saves lead/case to DB
+- [x] GET /api/cases — list cases per vet
+- [x] Dashboard stats now reflect real case data
+
 ### P0 (Next Phase - Core Features)
-- [ ] Patient/animal management (add, edit, view patients)
-- [ ] Case management (create case, update status, close case)
-- [ ] Dashboard stats - wire to real case data
+- [ ] Cases list screen (view all cases, filter by status)
+- [ ] Case detail screen (update status: pending → in-progress → closed)
+- [ ] Patient/animal profile management
+- [ ] Mark case as paid (update earnings in dashboard)
 
 ### P1 (Important Features)
 - [ ] Appointment scheduling with calendar view
