@@ -7,13 +7,29 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 
+const DEMO_MOBILE = '1234567890';
+const DEMO_PASSWORD = 'Demo@123';
+
 export default function LoginScreen() {
   const router = useRouter();
   const { login, user, isLoading } = useAuth();
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
+
+  const handleDemoLogin = async () => {
+    setDemoLoading(true);
+    try {
+      await login(DEMO_MOBILE, DEMO_PASSWORD);
+      router.replace('/(tabs)/dashboard');
+    } catch (e: any) {
+      Alert.alert('Demo Login Failed', e.message || 'Could not load demo account');
+    } finally {
+      setDemoLoading(false);
+    }
+  };
 
   // Auto redirect if logged in
   React.useEffect(() => {
@@ -114,6 +130,31 @@ export default function LoginScreen() {
                 : <Text style={styles.loginBtnText}>Sign In</Text>
               }
             </TouchableOpacity>
+
+            {/* Demo Login */}
+            <View style={styles.dividerRow}>
+              <View style={styles.divider} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.divider} />
+            </View>
+
+            <TouchableOpacity
+              testID="demo-login-btn"
+              style={[styles.demoBtn, demoLoading && styles.btnDisabled]}
+              onPress={handleDemoLogin}
+              disabled={demoLoading}
+            >
+              {demoLoading
+                ? <ActivityIndicator color="#2E7D32" />
+                : (
+                  <View style={styles.demoBtnInner}>
+                    <Text style={styles.demoBtnEmoji}>🔬</Text>
+                    <Text style={styles.demoBtnText}>Try Demo Account</Text>
+                  </View>
+                )
+              }
+            </TouchableOpacity>
+            <Text style={styles.demoHint}>Explore Animitra with sample vet data — no sign-up needed</Text>
           </View>
 
           {/* Register link */}
@@ -190,4 +231,16 @@ const styles = StyleSheet.create({
   registerRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },
   registerText: { fontSize: 15, color: C.textSecondary },
   registerLink: { fontSize: 15, color: C.primary, fontWeight: '700' },
+  // Demo button
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 16, gap: 10 },
+  divider: { flex: 1, height: 1, backgroundColor: C.border },
+  dividerText: { fontSize: 13, color: C.textSecondary },
+  demoBtn: {
+    height: 52, borderRadius: 14, borderWidth: 1.5, borderColor: C.primary,
+    justifyContent: 'center', alignItems: 'center', backgroundColor: C.surfaceSecondary,
+  },
+  demoBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  demoBtnEmoji: { fontSize: 18 },
+  demoBtnText: { fontSize: 15, fontWeight: '700', color: C.primary },
+  demoHint: { fontSize: 12, color: C.textSecondary, textAlign: 'center', marginTop: 8, lineHeight: 18 },
 });

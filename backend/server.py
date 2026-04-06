@@ -151,7 +151,82 @@ async def startup():
     await db.coupons.create_index("code", unique=True)
     await seed_admin()
     await seed_coupons()
+    await seed_demo_vet()
     write_test_credentials()
+
+
+async def seed_demo_vet():
+    demo_mobile = "1234567890"
+    demo_password = "Demo@123"
+    existing = await db.users.find_one({"mobile": demo_mobile})
+    if existing is None:
+        result = await db.users.insert_one({
+            "name": "Demo Vet",
+            "reg_no": "TN/VCI/DEMO01",
+            "mobile": demo_mobile,
+            "password_hash": hash_password(demo_password),
+            "state": "Tamil Nadu",
+            "district": "Coimbatore",
+            "taluk": "Coimbatore North",
+            "role": "vet",
+            "is_activated": True,
+            "coupon_code": "DEMO0001",
+            "created_at": datetime.now(timezone.utc),
+        })
+        vet_id = str(result.inserted_id)
+        logger.info("Demo vet seeded — seeding sample cases...")
+        await _seed_demo_cases(vet_id)
+    else:
+        # Make sure demo cases exist
+        case_count = await db.cases.count_documents({"vet_id": str(existing["_id"])})
+        if case_count == 0:
+            await _seed_demo_cases(str(existing["_id"]))
+
+
+async def _seed_demo_cases(vet_id: str):
+    now = datetime.now(timezone.utc)
+    today = now.replace(hour=9, minute=0, second=0, microsecond=0)
+
+    sample_cases = [
+        # Today - paid closed
+        {"owner_name": "Arjun Sharma", "mobile": "9811223344", "animal_type": "Dog",
+         "visit_reason": "Vaccination", "amount": 800.0, "status": "closed",
+         "is_paid": True, "paid_at": today, "created_at": today},
+        # Today - paid closed
+        {"owner_name": "Priya Nair", "mobile": "9922334455", "animal_type": "Cat",
+         "visit_reason": "Check-up", "amount": 500.0, "status": "closed",
+         "is_paid": True, "paid_at": today.replace(hour=11), "created_at": today.replace(hour=11)},
+        # Today - pending (not paid)
+        {"owner_name": "Ramesh Kumar", "mobile": "9733445566", "animal_type": "Cow",
+         "visit_reason": "Treatment", "amount": 1200.0, "status": "pending",
+         "is_paid": False, "paid_at": None, "created_at": today.replace(hour=14)},
+        # Yesterday - paid
+        {"owner_name": "Sunita Devi", "mobile": "9644556677", "animal_type": "Dog",
+         "visit_reason": "Deworming", "amount": 350.0, "status": "closed",
+         "is_paid": True, "paid_at": today - timedelta(days=1), "created_at": today - timedelta(days=1)},
+        # 2 days ago - unpaid closed
+        {"owner_name": "Murugan P", "mobile": "9555667788", "animal_type": "Goat",
+         "visit_reason": "Emergency", "amount": 1500.0, "status": "closed",
+         "is_paid": False, "paid_at": None, "created_at": today - timedelta(days=2)},
+        # 3 days ago
+        {"owner_name": "Lakshmi V", "mobile": "9466778899", "animal_type": "Buffalo",
+         "visit_reason": "Vaccination", "amount": 600.0, "status": "closed",
+         "is_paid": True, "paid_at": today - timedelta(days=3), "created_at": today - timedelta(days=3)},
+        # Pending from last week
+        {"owner_name": "Vijay S", "mobile": "9377889900", "animal_type": "Dog",
+         "visit_reason": "Surgery", "amount": 3500.0, "status": "pending",
+         "is_paid": False, "paid_at": None, "created_at": today - timedelta(days=5)},
+        # Last week paid
+        {"owner_name": "Kavitha M", "mobile": "9288990011", "animal_type": "Cat",
+         "visit_reason": "Follow-up", "amount": 400.0, "status": "closed",
+         "is_paid": True, "paid_at": today - timedelta(days=6), "created_at": today - timedelta(days=6)},
+    ]
+    for c in sample_cases:
+        c["vet_id"] = vet_id
+        c["notes"] = ""
+        c["updated_at"] = c["created_at"]
+    await db.cases.insert_many(sample_cases)
+    logger.info(f"Seeded {len(sample_cases)} demo cases for vet {vet_id}")
 
 
 def write_test_credentials():
