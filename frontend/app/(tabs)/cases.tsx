@@ -53,6 +53,7 @@ export default function CasesScreen() {
   const [closeForm, setCloseForm] = useState({ amount: '', payment_mode: 'Cash', is_paid: true });
   const [showFollowUp, setShowFollowUp] = useState(false);
   const [followUpDate, setFollowUpDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 7); return d; });
+  const [followUpReason, setFollowUpReason] = useState('');
   const [showFUPicker, setShowFUPicker] = useState(false);
   const [closeSaving, setCloseSaving] = useState(false);
 
@@ -86,6 +87,7 @@ export default function CasesScreen() {
     setCloseCase(c);
     setCloseForm({ amount: c.amount ? `${c.amount}` : '', payment_mode: 'Cash', is_paid: true });
     setShowFollowUp(false);
+    setFollowUpReason('');
   };
 
   const saveClose = async () => {
@@ -101,6 +103,7 @@ export default function CasesScreen() {
           payment_mode: closeForm.payment_mode,
           is_paid: closeForm.is_paid,
           follow_up_date: showFollowUp ? followUpDate.toISOString().split('T')[0] : null,
+          follow_up_reason: showFollowUp ? followUpReason.trim() || 'Follow-up' : '',
         }),
       });
       if (!res.ok) throw new Error('Failed');
@@ -289,6 +292,28 @@ export default function CasesScreen() {
                     </Text>
                   </TouchableOpacity>
                 )}
+                {showFollowUp && (
+                  <>
+                    <Text style={[styles.label, { marginTop: 12 }]}>FOLLOW-UP REASON</Text>
+                    <TextInput
+                      testID="cases-fu-reason-input"
+                      style={styles.input}
+                      placeholder="e.g. Check stitches, Re-vaccination..."
+                      placeholderTextColor="#9EB09F"
+                      value={followUpReason}
+                      onChangeText={setFollowUpReason}
+                    />
+                    <View style={styles.reasonChips}>
+                      {['Check Stitches','Re-vaccination','Re-examination','Medicine Review','Dressing Change','Test Results'].map(r => (
+                        <TouchableOpacity key={r}
+                          style={[styles.reasonChip, followUpReason === r && styles.reasonChipSel]}
+                          onPress={() => setFollowUpReason(followUpReason === r ? '' : r)}>
+                          <Text style={[styles.reasonChipText, followUpReason === r && { color: '#fff' }]}>{r}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>
+                )}
 
                 <TouchableOpacity testID="confirm-close-cases"
                   style={[styles.saveBtn, closeSaving && { opacity: 0.6 }]}
@@ -401,6 +426,10 @@ const styles = StyleSheet.create({
   toggleText: { fontSize: 13, fontWeight: '600', color: C.text },
   datePill: { backgroundColor: C.secondary, borderRadius: 10, padding: 12, marginTop: 8 },
   datePillText: { fontSize: 14, fontWeight: '600', color: C.primary },
+  reasonChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  reasonChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 50, backgroundColor: C.fill },
+  reasonChipSel: { backgroundColor: C.primary },
+  reasonChipText: { fontSize: 12, fontWeight: '600', color: C.text },
   infoBox: { backgroundColor: '#E3F2FD', borderRadius: 10, padding: 10, marginTop: 8 },
   infoText: { fontSize: 13, color: C.blue },
   saveBtn: { height: 52, backgroundColor: C.primary, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginTop: 16 },

@@ -272,6 +272,7 @@ class CloseCaseRequest(BaseModel):
     payment_mode: str
     is_paid: bool
     follow_up_date: Optional[str] = None
+    follow_up_reason: Optional[str] = ""
 
 class MarkPaidRequest(BaseModel):
     amount: float
@@ -429,12 +430,14 @@ async def close_case(case_id: str, data: CloseCaseRequest, user=Depends(get_curr
     fu_date = parse_date(data.follow_up_date)
     if fu_date:
         update["follow_up_date"] = fu_date
+        fu_reason = data.follow_up_reason.strip() if data.follow_up_reason else "Follow-up"
         # Create follow-up case
         await db.cases.insert_one({
             "vet_id": user["id"], "owner_name": case["owner_name"], "mobile": case["mobile"],
             "village_name": case.get("village_name", ""), "animal_type": case["animal_type"],
-            "visit_reason": "Follow-up", "visit_date": fu_date, "amount": 0.0,
-            "notes": f"Follow-up for {case['visit_reason']}", "status": "upcoming",
+            "visit_reason": fu_reason, "visit_date": fu_date, "amount": 0.0,
+            "notes": f"Follow-up from {case['visit_reason']} on {case.get('visit_date', case['created_at']).strftime('%d/%m/%Y')}",
+            "status": "upcoming",
             "is_paid": False, "payment_mode": None, "paid_amount": 0.0, "paid_at": None,
             "follow_up_date": None, "forwarded_to_name": "", "forwarded_from": "",
             "created_at": now, "updated_at": now,

@@ -84,6 +84,7 @@ export default function DashboardScreen() {
   const [closeForm, setCloseForm] = useState({ amount: '', payment_mode: 'Cash', is_paid: true });
   const [showFollowUp, setShowFollowUp] = useState(false);
   const [followUpDate, setFollowUpDate] = useState(new Date());
+  const [followUpReason, setFollowUpReason] = useState('');
   const [showFollowUpPicker, setShowFollowUpPicker] = useState(false);
   const [closeSaving, setCloseSaving] = useState(false);
 
@@ -170,6 +171,7 @@ export default function DashboardScreen() {
     setCloseCase(c);
     setCloseForm({ amount: '', payment_mode: 'Cash', is_paid: true });
     setShowFollowUp(false);
+    setFollowUpReason('');
     const fu = new Date(); fu.setDate(fu.getDate() + 7);
     setFollowUpDate(fu);
   };
@@ -191,6 +193,7 @@ export default function DashboardScreen() {
           payment_mode: closeForm.payment_mode,
           is_paid: closeForm.is_paid,
           follow_up_date: fuStr,
+          follow_up_reason: showFollowUp ? followUpReason.trim() || 'Follow-up' : '',
         }),
       });
       if (!res.ok) throw new Error('Failed to close case');
@@ -612,6 +615,28 @@ export default function DashboardScreen() {
                     <Text style={styles.dateBtnText}>Follow-up: {formatDateLabel(followUpDate)}</Text>
                   </TouchableOpacity>
                 )}
+                {showFollowUp && (
+                  <>
+                    <Text style={[styles.inputLabel, { marginTop: 12 }]}>FOLLOW-UP REASON</Text>
+                    <TextInput
+                      testID="followup-reason-input"
+                      style={styles.input}
+                      placeholder="e.g. Check stitches, Re-vaccination, Re-examination..."
+                      placeholderTextColor="#9EB09F"
+                      value={followUpReason}
+                      onChangeText={setFollowUpReason}
+                    />
+                    <View style={styles.reasonChips}>
+                      {['Check Stitches','Re-vaccination','Re-examination','Medicine Review','Dressing Change','Test Results'].map(r => (
+                        <TouchableOpacity key={r} testID={`reason-chip-${r}`}
+                          style={[styles.reasonChip, followUpReason === r && styles.reasonChipSel]}
+                          onPress={() => setFollowUpReason(r)}>
+                          <Text style={[styles.reasonChipText, followUpReason === r && { color: '#fff' }]}>{r}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>
+                )}
 
                 <TouchableOpacity testID="confirm-close-btn"
                   style={[styles.saveBtn, closeSaving && styles.btnDisabled]}
@@ -723,7 +748,11 @@ const styles = StyleSheet.create({
   toggleText: { fontSize: 14, fontWeight: '600', color: C.text },
   infoBox: { backgroundColor: '#FFF8E1', borderRadius: 10, padding: 10, marginTop: 8 },
   infoText: { fontSize: 13, color: C.warning },
-  // Chip picker
+  // Reason chips
+  reasonChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  reasonChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 50, backgroundColor: C.fill },
+  reasonChipSel: { backgroundColor: C.primary },
+  reasonChipText: { fontSize: 12, fontWeight: '600', color: C.text },
   pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', paddingHorizontal: 16 },
   chipSheet: { backgroundColor: C.surface, borderRadius: 20, padding: 20 },
   chipTitle: { fontSize: 17, fontWeight: '700', color: C.text, marginBottom: 14, textAlign: 'center' },
