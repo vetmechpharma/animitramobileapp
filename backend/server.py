@@ -527,32 +527,89 @@ async def list_cases(status: Optional[str] = None, skip: int = 0, limit: int = 5
 
 @api_router.get("/ledger/outstanding")
 async def outstanding(period: str = "all", user=Depends(get_current_user)):
-    # Outstanding = closed cases where amount > paid_amount (includes partial payments)
     query: dict = {
         "vet_id": user["id"], "status": "closed",
         "treatment_status": {"$ne": "not_treated"},
-        "amount": {"$gt": 0},
-        "is_paid": False,
+        "is_paid": False, "amount": {"$gt": 0},
     }
     if period == "week":
         query["created_at"] = {"$gte": datetime.now(timezone.utc) - timedelta(days=7)}
     elif period == "month":
         query["created_at"] = {"$gte": datetime.now(timezone.utc) - timedelta(days=30)}
 
-    # Total outstanding = sum of (amount - paid_amount)
-    agg = await db.cases.aggregate([
-        {"$match": query},
-        {"$group": {"_id": None, "total": {"$sum": {"$subtract": ["$amount", "$paid_amount"]}}}}
-    ]).to_list(1)
-    total_amount = agg[0]["total"] if agg else 0
-
-    cursor = db.cases.find(query).sort("created_at", -1).limit(100)
-    cases = []
-    async for c in cursor:
+    # Fetch all outstanding cases sorted oldest first
+    all_cases = []
+    async for c in db.cases.find(query).sort("created_at", 1):
         fc = fmt_case(c)
         fc["outstanding"] = round(c.get("amount", 0) - c.get("paid_amount", 0), 2)
-        cases.append(fc)
-    return {"total_outstanding": round(total_amount, 2), "cases": cases}
+        all_cases.append(fc)
+
+    # Group by mobile (farmer)
+    farmer_map: dict = {}
+    for c in all_cases:
+        key = c["mobile"]
+        if key not in farmer_map:
+            farmer_map[key] = {
+                "owner_name": c["owner_name"], "mobile": c["mobile"],
+                "village_name": c["village_name"] or "",
+                "total_outstanding": 0.0, "case_count": 0, "cases": [],
+            }
+        farmer_map[key]["total_outstanding"] = round(farmer_map[key]["total_outstanding"] + c["outstanding"], 2)
+        farmer_map[key]["case_count"] += 1
+        farmer_map[key]["cases"].append(c)
+
+    farmers = sorted(farmer_map.values(), key=lambda x: x["total_outstanding"], reverse=True)
+    total = round(sum(f["total_outstanding"] for f in farmers), 2)
+    return {"total_outstanding": total, "total_farmers": len(farmers), "farmers": farmers}
+
+
+class FarmerCollectRequest(BaseModel):
+    mobile: str            # farmer mobile
+    owner_name: str
+    amount: float          # total amount being collected
+    payment_mode: str
+
+
+@api_router.post("/ledger/farmer-collect")
+async def farmer_collect(data: FarmerCollectRequest, user=Depends(get_current_user)):
+    """Apply payment FIFO across farmer's outstanding cases (oldest first)."""
+    cases_cursor = db.cases.find({
+        "vet_id": user["id"], "mobile": data.mobile,
+        "status": "closed", "is_paid": False, "amount": {"$gt": 0},
+        "treatment_status": {"$ne": "not_treated"},
+    }).sort("created_at", 1)
+
+    remaining = data.amount
+    total_applied = 0.0
+    now = datetime.now(timezone.utc)
+
+    async for c in cases_cursor:
+        if remaining <= 0:
+            break
+        case_outstanding = round(c.get("amount", 0) - c.get("paid_amount", 0), 2)
+        if case_outstanding <= 0:
+            continue
+
+        if remaining >= case_outstanding:
+            # Fully pay this case
+            await db.cases.update_one({"_id": c["_id"]}, {"$set": {
+                "paid_amount": c.get("amount", 0),
+                "is_paid": True, "payment_mode": data.payment_mode,
+                "paid_at": now, "updated_at": now,
+            }})
+            total_applied += case_outstanding
+            remaining = round(remaining - case_outstanding, 2)
+        else:
+            # Partial — pay remaining balance into this case
+            new_paid = round(c.get("paid_amount", 0) + remaining, 2)
+            await db.cases.update_one({"_id": c["_id"]}, {"$set": {
+                "paid_amount": new_paid, "is_paid": False,
+                "payment_mode": data.payment_mode, "updated_at": now,
+            }})
+            total_applied += remaining
+            remaining = 0
+
+    return {"success": True, "collected": round(total_applied, 2)}
 
 # ─────────────────────────── dashboard stats ──────────────────────────────────
 
