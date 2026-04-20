@@ -291,6 +291,7 @@ export default function DashboardScreen() {
                       {c.village_name ? `📍 ${c.village_name}` : ''}
                     </Text>
                     <Text style={styles.caseMeta}>{c.animal_type} • {c.visit_reason}</Text>
+                    {c.notes ? <Text style={styles.caseNotes}>📝 {c.notes}</Text> : null}
                   </View>
                   <View style={styles.caseStatus}>
                     <View style={[styles.statusBadge,
@@ -687,6 +688,7 @@ const styles = StyleSheet.create({
   caseOwner: { fontSize: 16, fontWeight: '700', color: C.text },
   caseVillage: { fontSize: 12, color: C.sub, marginTop: 1 },
   caseMeta: { fontSize: 12, color: C.sub, marginTop: 2 },
+  caseNotes: { fontSize: 12, color: C.sub, marginTop: 3, fontStyle: 'italic' },
   caseStatus: { marginLeft: 8 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   statusActive: { backgroundColor: C.secondary },

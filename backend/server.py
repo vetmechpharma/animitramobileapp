@@ -334,6 +334,8 @@ async def login(data: LoginRequest):
         raise HTTPException(401, "Invalid mobile number or password")
     if not user.get("is_activated"):
         raise HTTPException(403, "Account not activated. Please enter your coupon code.")
+    if user.get("is_suspended"):
+        raise HTTPException(403, "Account suspended. Contact Animitra support.")
     uid = str(user["_id"])
     return {"success": True, "token": create_token(uid, data.mobile, user.get("role", "vet")),
             "user": {"id": uid, "name": user["name"], "mobile": user["mobile"],
@@ -579,11 +581,169 @@ async def export_coupons(user=Depends(get_admin_user)):
         lines.append(f"{c['code']},UNUSED,{c['created_at'].strftime('%Y-%m-%d %H:%M:%S')}")
     return PlainTextResponse("\n".join(lines), media_type="text/csv")
 
+# ─────────────────────────── subscription / UTR ───────────────────────────────
+
+class UTRRequest(BaseModel):
+    utr_number: str
+    mobile: str
+    name: str
+
+class SuspendRequest(BaseModel):
+    reason: Optional[str] = ""
+
+
+def get_period_start(period: str) -> datetime:
+    now = datetime.now(timezone.utc)
+    if period == "day":   return now.replace(hour=0, minute=0, second=0, microsecond=0)
+    if period == "week":  return now - timedelta(days=7)
+    if period == "year":  return now - timedelta(days=365)
+    return now - timedelta(days=30)  # default month
+
+
+@api_router.post("/subscription/submit-utr")
+async def submit_utr(data: UTRRequest, user=Depends(get_current_user)):
+    existing = await db.payment_submissions.find_one({"user_id": user["id"]})
+    if existing:
+        await db.payment_submissions.update_one({"user_id": user["id"]},
+            {"$set": {"utr_number": data.utr_number, "status": "pending", "updated_at": datetime.now(timezone.utc)}})
+    else:
+        await db.payment_submissions.insert_one({
+            "user_id": user["id"], "name": data.name, "mobile": data.mobile,
+            "utr_number": data.utr_number, "amount": 200, "status": "pending",
+            "created_at": datetime.now(timezone.utc), "updated_at": datetime.now(timezone.utc),
+        })
+    return {"success": True, "message": "UTR submitted. You will receive your coupon code shortly."}
+
+
+# ─────────────────────────── reports ──────────────────────────────────────────
+
+@api_router.get("/reports/animal-type")
+async def report_animal_type(period: str = "month", user=Depends(get_current_user)):
+    start = get_period_start(period)
+    pipeline = [
+        {"$match": {"vet_id": user["id"], "created_at": {"$gte": start}}},
+        {"$group": {"_id": "$animal_type", "count": {"$sum": 1}, "earnings": {"$sum": "$paid_amount"}}},
+        {"$sort": {"count": -1}},
+    ]
+    results = await db.cases.aggregate(pipeline).to_list(50)
+    return {"period": period, "data": [{"animal_type": r["_id"] or "Unknown", "count": r["count"], "earnings": r["earnings"]} for r in results]}
+
+
+@api_router.get("/reports/visit-reason")
+async def report_visit_reason(period: str = "month", user=Depends(get_current_user)):
+    start = get_period_start(period)
+    pipeline = [
+        {"$match": {"vet_id": user["id"], "created_at": {"$gte": start}}},
+        {"$group": {"_id": "$visit_reason", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+    ]
+    results = await db.cases.aggregate(pipeline).to_list(50)
+    return {"period": period, "data": [{"reason": r["_id"] or "Unknown", "count": r["count"]} for r in results]}
+
+
+@api_router.get("/reports/forwards")
+async def report_forwards(user=Depends(get_current_user)):
+    cursor = db.cases.find({"vet_id": user["id"], "status": "forwarded"}).sort("created_at", -1)
+    cases = [fmt_case(c) async for c in cursor]
+    return {"total": len(cases), "cases": cases}
+
+
+# ─────────────────────────── admin extended ───────────────────────────────────
+
+@api_router.get("/admin/users")
+async def admin_users(user=Depends(get_admin_user)):
+    users = []
+    async for u in db.users.find({}).sort("created_at", -1):
+        uid = str(u["_id"])
+        case_count = await db.cases.count_documents({"vet_id": uid})
+        users.append({
+            "id": uid, "name": u["name"], "mobile": u["mobile"],
+            "reg_no": u.get("reg_no", ""), "state": u.get("state", ""),
+            "district": u.get("district", ""), "taluk": u.get("taluk", ""),
+            "role": u.get("role", "vet"), "is_activated": u.get("is_activated", False),
+            "is_suspended": u.get("is_suspended", False),
+            "suspend_reason": u.get("suspend_reason", ""),
+            "case_count": case_count,
+            "created_at": u["created_at"].isoformat(),
+        })
+    return {"total": len(users), "users": users}
+
+
+@api_router.post("/admin/users/{uid}/suspend")
+async def admin_suspend(uid: str, data: SuspendRequest, user=Depends(get_admin_user)):
+    await db.users.update_one({"_id": ObjectId(uid)},
+        {"$set": {"is_suspended": True, "suspend_reason": data.reason or "Suspended by admin"}})
+    return {"success": True}
+
+
+@api_router.post("/admin/users/{uid}/unsuspend")
+async def admin_unsuspend(uid: str, user=Depends(get_admin_user)):
+    await db.users.update_one({"_id": ObjectId(uid)}, {"$set": {"is_suspended": False, "suspend_reason": ""}})
+    return {"success": True}
+
+
+@api_router.get("/admin/payment-submissions")
+async def admin_payments(user=Depends(get_admin_user)):
+    submissions = []
+    async for s in db.payment_submissions.find({}).sort("created_at", -1):
+        submissions.append({
+            "id": str(s["_id"]), "user_id": s["user_id"], "name": s["name"],
+            "mobile": s["mobile"], "utr_number": s["utr_number"],
+            "amount": s.get("amount", 200), "status": s.get("status", "pending"),
+            "created_at": s["created_at"].isoformat(),
+        })
+    total = len(submissions)
+    pending = sum(1 for s in submissions if s["status"] == "pending")
+    return {"total": total, "pending": pending, "submissions": submissions}
+
+
+@api_router.post("/admin/payment-submissions/{sid}/process")
+async def admin_process_payment(sid: str, user=Depends(get_admin_user)):
+    await db.payment_submissions.update_one({"_id": ObjectId(sid)},
+        {"$set": {"status": "processed", "processed_at": datetime.now(timezone.utc),
+                  "processed_by": user["id"]}})
+    return {"success": True}
+
+
+@api_router.get("/admin/export/users")
+async def admin_export_users(user=Depends(get_admin_user)):
+    lines = ["NAME,MOBILE,REG_NO,STATE,DISTRICT,TALUK,ACTIVATED,SUSPENDED,REGISTERED_AT"]
+    async for u in db.users.find({}).sort("created_at", -1):
+        lines.append(f"{u['name']},{u['mobile']},{u.get('reg_no','')},"
+                     f"{u.get('state','')},{u.get('district','')},{u.get('taluk','')},"
+                     f"{'YES' if u.get('is_activated') else 'NO'},"
+                     f"{'YES' if u.get('is_suspended') else 'NO'},"
+                     f"{u['created_at'].strftime('%Y-%m-%d')}")
+    return PlainTextResponse("\n".join(lines), media_type="text/csv")
+
+
+@api_router.get("/admin/reports/summary")
+async def admin_reports_summary(user=Depends(get_admin_user)):
+    total_users = await db.users.count_documents({"role": "vet"})
+    active_users = await db.users.count_documents({"role": "vet", "is_activated": True})
+    suspended = await db.users.count_documents({"is_suspended": True})
+    total_cases = await db.cases.count_documents({})
+    total_payments = await db.payment_submissions.count_documents({"status": "processed"})
+    pending_payments = await db.payment_submissions.count_documents({"status": "pending"})
+    # Top states
+    top_states = await db.users.aggregate([
+        {"$match": {"role": "vet"}},
+        {"$group": {"_id": "$state", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}, {"$limit": 5}
+    ]).to_list(5)
+    return {
+        "total_users": total_users, "active_users": active_users,
+        "suspended": suspended, "total_cases": total_cases,
+        "total_payments": total_payments, "pending_payments": pending_payments,
+        "top_states": [{"state": s["_id"], "count": s["count"]} for s in top_states],
+    }
+
+
 # ─────────────────────────── health ───────────────────────────────────────────
 
 @api_router.get("/")
 async def root():
-    return {"message": "Animitra API running", "version": "2.0.0"}
+    return {"message": "Animitra API running", "version": "3.0.0"}
 
 app.include_router(api_router)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,

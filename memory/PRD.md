@@ -63,12 +63,16 @@
 
 ## Prioritized Backlog
 
-### Done (Phase 2 - April 2026)
-- [x] Floating Quick Add (FAB) button on Dashboard
-- [x] Quick Add modal: Mobile + Contacts picker + Owner Name + Animal Type chips + Visit Reason chips + Amount + Notes
-- [x] POST /api/cases/quick-add endpoint — saves lead/case to DB
-- [x] GET /api/cases — list cases per vet
-- [x] Dashboard stats now reflect real case data
+### Done (Phase 4 - April 2026)
+- [x] Notes visible in all case cards (today, pending, upcoming, closed)
+- [x] Forward button on today's active + pending cases
+- [x] UPI QR subscription screen (₹200 lifetime, 9486544884@kvb) + UTR submission
+- [x] Reports screen: Animal-wise, Visit Reason-wise, Forwards (day/week/month/year filter)
+- [x] About Us screen: company info, features, T&C, contact
+- [x] Admin panel (⚙️ tab, admin-only): Overview stats, Users+Suspend, Payments/UTR, Coupons
+- [x] User suspend/unsuspend with reason
+- [x] 6 bottom tabs: Home | Cases | Ledger | Reports | About | Admin(admin-only)
+- [x] Login checks suspension status
 
 ### P0 (Next Phase - Core Features)
 - [ ] Cases list screen (view all cases, filter by status)

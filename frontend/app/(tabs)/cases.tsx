@@ -160,6 +160,7 @@ export default function CasesScreen() {
           {c.village_name ? <Text style={styles.cardVillage}>📍 {c.village_name}</Text> : null}
           <Text style={styles.cardMeta}>{c.animal_type} • {c.visit_reason}</Text>
           <Text style={styles.cardDate}>{formatDate(c.visit_date)}</Text>
+          {c.notes ? <Text style={styles.cardNotes}>📝 {c.notes}</Text> : null}
         </View>
         <View>
           <View style={[styles.badge, { backgroundColor: statusColor(c) }]}>
@@ -179,9 +180,15 @@ export default function CasesScreen() {
         </TouchableOpacity>
 
         {(c.status === 'active' || c.status === 'upcoming') && (
-          <TouchableOpacity testID={`cases-close-${c.id}`} style={styles.closeBtn} onPress={() => openClose(c)}>
-            <Text style={styles.closeBtnText}>✓ Close</Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity testID={`cases-close-${c.id}`} style={styles.closeBtn} onPress={() => openClose(c)}>
+              <Text style={styles.closeBtnText}>✓ Close</Text>
+            </TouchableOpacity>
+            <TouchableOpacity testID={`cases-forward-today-${c.id}`} style={styles.fwdBtn}
+              onPress={() => { setForwardCase(c); setForwardMobile(''); setForwardMsg(''); }}>
+              <Text style={styles.fwdBtnText}>↗</Text>
+            </TouchableOpacity>
+          </>
         )}
 
         {c.status === 'pending' && (
@@ -394,6 +401,7 @@ const styles = StyleSheet.create({
   cardVillage: { fontSize: 12, color: C.sub, marginTop: 1 },
   cardMeta: { fontSize: 12, color: C.sub, marginTop: 1 },
   cardDate: { fontSize: 12, color: C.primary, fontWeight: '600', marginTop: 2 },
+  cardNotes: { fontSize: 12, color: C.sub, marginTop: 4, fontStyle: 'italic', lineHeight: 18 },
   badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, marginBottom: 4 },
   badgeText: { fontSize: 11, fontWeight: '700', color: C.text },
   amountText: { fontSize: 14, fontWeight: '700', textAlign: 'right' },
