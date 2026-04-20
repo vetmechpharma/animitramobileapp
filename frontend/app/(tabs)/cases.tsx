@@ -50,7 +50,7 @@ export default function CasesScreen() {
 
   // Close Case
   const [closeCase, setCloseCase] = useState<Case | null>(null);
-  const [closeForm, setCloseForm] = useState({ amount: '', payment_mode: 'Cash', is_paid: true });
+  const [closeForm, setCloseForm] = useState({ treatment_status: 'treated', amount: '', payment_status: 'full', payment_mode: 'Cash', paid_amount: '' });
   const [showFollowUp, setShowFollowUp] = useState(false);
   const [followUpDate, setFollowUpDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 7); return d; });
   const [followUpReason, setFollowUpReason] = useState('');
@@ -85,30 +85,42 @@ export default function CasesScreen() {
 
   const openClose = (c: Case) => {
     setCloseCase(c);
-    setCloseForm({ amount: c.amount ? `${c.amount}` : '', payment_mode: 'Cash', is_paid: true });
+    setCloseForm({ treatment_status: 'treated', amount: c.amount ? `${c.amount}` : '', payment_status: 'full', payment_mode: 'Cash', paid_amount: '' });
     setShowFollowUp(false);
     setFollowUpReason('');
   };
 
   const saveClose = async () => {
     if (!closeCase) return;
-    if (!closeForm.amount) { Alert.alert('Required', 'Enter amount charged (0 if free)'); return; }
+    const { treatment_status, amount, payment_status, payment_mode, paid_amount } = closeForm;
+    if (treatment_status === 'treated') {
+      if (!amount || isNaN(parseFloat(amount))) { Alert.alert('Required', 'Enter amount charged (0 if free)'); return; }
+      if (payment_status === 'partial' && (!paid_amount || parseFloat(paid_amount) >= parseFloat(amount))) {
+        Alert.alert('Invalid', 'Partial amount must be less than total charged'); return;
+      }
+    }
     setCloseSaving(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/cases/${closeCase.id}/close`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          amount: parseFloat(closeForm.amount) || 0,
-          payment_mode: closeForm.payment_mode,
-          is_paid: closeForm.is_paid,
+          treatment_status,
+          amount: treatment_status === 'treated' ? parseFloat(amount) || 0 : 0,
+          payment_status: treatment_status === 'treated' ? payment_status : 'not_applicable',
+          payment_mode: payment_status !== 'not_paid' ? payment_mode : null,
+          paid_amount: payment_status === 'partial' ? parseFloat(paid_amount) || 0 : (payment_status === 'full' ? parseFloat(amount) || 0 : 0),
           follow_up_date: showFollowUp ? followUpDate.toISOString().split('T')[0] : null,
           follow_up_reason: showFollowUp ? followUpReason.trim() || 'Follow-up' : '',
         }),
       });
       if (!res.ok) throw new Error('Failed');
       setCloseCase(null); fetchCases();
-      Alert.alert('✅ Case Closed', closeForm.is_paid ? 'Payment recorded!' : 'Added to Outstanding ledger.');
+      const msg = treatment_status === 'not_treated' ? 'Closed as Not Treated.'
+        : payment_status === 'full' ? `✅ ₹${amount} received.`
+        : payment_status === 'partial' ? `₹${paid_amount} received. ₹${(parseFloat(amount)-parseFloat(paid_amount)).toFixed(0)} to Ledger.`
+        : `₹${amount} added to Outstanding Ledger.`;
+      Alert.alert('✅ Case Closed', msg);
     } catch (e: any) { Alert.alert('Error', e.message); }
     finally { setCloseSaving(false); }
   };
@@ -253,34 +265,88 @@ export default function CasesScreen() {
                   <Text style={styles.xText}>✕</Text>
                 </TouchableOpacity>
               </View>
-              <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 480 }}>
-                <Text style={styles.label}>AMOUNT CHARGED (₹)</Text>
-                <TextInput testID="close-amount" style={styles.input}
-                  placeholder="Amount (0 if free)" placeholderTextColor="#9EB09F"
-                  keyboardType="numeric" value={closeForm.amount}
-                  onChangeText={v => setCloseForm(f => ({ ...f, amount: v }))} />
-
-                <Text style={styles.label}>PAYMENT MODE</Text>
-                <View style={styles.chipRow}>
-                  {PAYMENT_MODES.map(m => (
-                    <TouchableOpacity key={m} testID={`mode-${m}`}
-                      style={[styles.chip, closeForm.payment_mode === m && styles.chipSel]}
-                      onPress={() => setCloseForm(f => ({ ...f, payment_mode: m }))}>
-                      <Text style={[styles.chipText, closeForm.payment_mode === m && { color: '#fff' }]}>{m}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <Text style={[styles.label, { marginTop: 14 }]}>PAYMENT STATUS</Text>
+              <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 520 }}>
+                {/* Treated / Not Treated */}
+                <Text style={styles.label}>TREATMENT STATUS</Text>
                 <View style={styles.toggleRow}>
-                  {[{ v: true, l: '✓ Paid Now' }, { v: false, l: '⏳ Collect Later' }].map(({ v, l }) => (
-                    <TouchableOpacity key={l} testID={`paid-${v}`}
-                      style={[styles.toggleBtn, closeForm.is_paid === v && (v ? styles.toggleActive : styles.toggleWarn)]}
-                      onPress={() => setCloseForm(f => ({ ...f, is_paid: v }))}>
-                      <Text style={[styles.toggleText, closeForm.is_paid === v && { color: '#fff' }]}>{l}</Text>
+                  {[{k:'treated',l:'✅ Treated'},{k:'not_treated',l:'❌ Not Treated'}].map(({k,l}) => (
+                    <TouchableOpacity key={k} testID={`treat-${k}`}
+                      style={[styles.toggleBtn, closeForm.treatment_status===k && (k==='treated' ? styles.toggleActive : styles.toggleWarn)]}
+                      onPress={() => setCloseForm(f => ({...f, treatment_status:k}))}>
+                      <Text style={[styles.toggleText, closeForm.treatment_status===k && {color:'#fff'}]}>{l}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
+                {closeForm.treatment_status === 'not_treated' && (
+                  <View style={styles.infoBox}><Text style={styles.infoText}>ℹ️ Closed with no charges.</Text></View>
+                )}
+
+                {closeForm.treatment_status === 'treated' && (
+                  <>
+                    <Text style={styles.label}>AMOUNT CHARGED (₹)</Text>
+                    <TextInput testID="close-amount" style={styles.input}
+                      placeholder="Total charged (e.g. 1000)" placeholderTextColor="#9EB09F"
+                      keyboardType="numeric" value={closeForm.amount}
+                      onChangeText={v => setCloseForm(f => ({...f, amount: v}))} />
+
+                    <Text style={[styles.label, { marginTop: 14 }]}>PAYMENT RECEIVED</Text>
+                    <View style={{ gap: 8 }}>
+                      {[
+                        {key:'full', emoji:'💰', label:'Full Payment', desc:'All received now'},
+                        {key:'partial', emoji:'📑', label:'Partial Payment', desc:'Part received, rest to ledger'},
+                        {key:'not_paid', emoji:'⏳', label:'Collect Later', desc:'All goes to Outstanding Ledger'},
+                      ].map(opt => (
+                        <TouchableOpacity key={opt.key} testID={`pay-opt-${opt.key}`}
+                          style={[styles.payOption, closeForm.payment_status===opt.key && styles.payOptionActive]}
+                          onPress={() => setCloseForm(f => ({...f, payment_status:opt.key}))}>
+                          <Text style={{fontSize:18}}>{opt.emoji}</Text>
+                          <View style={{flex:1}}>
+                            <Text style={[{fontSize:14,fontWeight:'700',color:C.text}, closeForm.payment_status===opt.key && {color:C.primary}]}>{opt.label}</Text>
+                            <Text style={{fontSize:12,color:C.sub,marginTop:2}}>{opt.desc}</Text>
+                          </View>
+                          <View style={[styles.radioOuter, closeForm.payment_status===opt.key && styles.radioOuterActive]}>
+                            {closeForm.payment_status===opt.key && <View style={styles.radioInner}/>}
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    {closeForm.payment_status === 'partial' && (
+                      <>
+                        <Text style={styles.label}>AMOUNT RECEIVED NOW (₹)</Text>
+                        <TextInput testID="partial-amount" style={styles.input}
+                          placeholder="e.g. 300" placeholderTextColor="#9EB09F"
+                          keyboardType="numeric" value={closeForm.paid_amount}
+                          onChangeText={v => setCloseForm(f => ({...f, paid_amount:v}))} />
+                        {closeForm.amount && closeForm.paid_amount && parseFloat(closeForm.paid_amount) < parseFloat(closeForm.amount) && (
+                          <View style={styles.outstandingPreview}>
+                            <Text style={styles.outstandingText}>💳 Outstanding: ₹{(parseFloat(closeForm.amount)-parseFloat(closeForm.paid_amount)).toFixed(0)} → Ledger</Text>
+                          </View>
+                        )}
+                      </>
+                    )}
+                    {closeForm.payment_status === 'not_paid' && !!closeForm.amount && (
+                      <View style={styles.outstandingPreview}>
+                        <Text style={styles.outstandingText}>💳 ₹{parseFloat(closeForm.amount||'0').toFixed(0)} → Outstanding Ledger</Text>
+                      </View>
+                    )}
+
+                    {closeForm.payment_status !== 'not_paid' && (
+                      <>
+                        <Text style={styles.label}>PAYMENT MODE</Text>
+                        <View style={styles.chipRow}>
+                          {PAYMENT_MODES.map(m => (
+                            <TouchableOpacity key={m} testID={`mode-${m}`}
+                              style={[styles.chip, closeForm.payment_mode===m && styles.chipSel]}
+                              onPress={() => setCloseForm(f => ({...f, payment_mode:m}))}>
+                              <Text style={[styles.chipText, closeForm.payment_mode===m && {color:'#fff'}]}>{m}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </>
+                    )}
+                  </>
+                )}
 
                 <Text style={[styles.label, { marginTop: 14 }]}>FOLLOW-UP?</Text>
                 <View style={styles.toggleRow}>
@@ -302,14 +368,9 @@ export default function CasesScreen() {
                 {showFollowUp && (
                   <>
                     <Text style={[styles.label, { marginTop: 12 }]}>FOLLOW-UP REASON</Text>
-                    <TextInput
-                      testID="cases-fu-reason-input"
-                      style={styles.input}
+                    <TextInput testID="cases-fu-reason-input" style={styles.input}
                       placeholder="e.g. Check stitches, Re-vaccination..."
-                      placeholderTextColor="#9EB09F"
-                      value={followUpReason}
-                      onChangeText={setFollowUpReason}
-                    />
+                      placeholderTextColor="#9EB09F" value={followUpReason} onChangeText={setFollowUpReason} />
                     <View style={styles.reasonChips}>
                       {['Check Stitches','Re-vaccination','Re-examination','Medicine Review','Dressing Change','Test Results'].map(r => (
                         <TouchableOpacity key={r}
@@ -432,6 +493,15 @@ const styles = StyleSheet.create({
   toggleActive: { backgroundColor: C.primary, borderColor: C.primary },
   toggleWarn: { backgroundColor: C.warning, borderColor: C.warning },
   toggleText: { fontSize: 13, fontWeight: '600', color: C.text },
+  infoBox: { backgroundColor: '#E3F2FD', borderRadius: 10, padding: 10, marginTop: 8 },
+  infoText: { fontSize: 13, color: C.blue },
+  payOption: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.fill, borderRadius: 12, padding: 12, borderWidth: 1.5, borderColor: 'transparent' },
+  payOptionActive: { borderColor: C.primary, backgroundColor: C.secondary },
+  radioOuter: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: C.border, justifyContent: 'center', alignItems: 'center' },
+  radioOuterActive: { borderColor: C.primary },
+  radioInner: { width: 9, height: 9, borderRadius: 5, backgroundColor: C.primary },
+  outstandingPreview: { backgroundColor: '#FFF3E0', borderRadius: 10, padding: 10, marginTop: 8, borderLeftWidth: 3, borderLeftColor: C.warning },
+  outstandingText: { fontSize: 13, color: C.warning, fontWeight: '600' },
   datePill: { backgroundColor: C.secondary, borderRadius: 10, padding: 12, marginTop: 8 },
   datePillText: { fontSize: 14, fontWeight: '600', color: C.primary },
   reasonChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },

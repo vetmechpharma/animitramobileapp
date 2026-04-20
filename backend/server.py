@@ -268,9 +268,11 @@ class QuickCaseRequest(BaseModel):
     notes: Optional[str] = ""
 
 class CloseCaseRequest(BaseModel):
-    amount: float
-    payment_mode: str
-    is_paid: bool
+    treatment_status: str = "treated"   # "treated" | "not_treated"
+    amount: float = 0.0
+    payment_status: str = "not_paid"    # "full" | "partial" | "not_paid"
+    payment_mode: Optional[str] = None
+    paid_amount: float = 0.0            # actual cash received (for partial)
     follow_up_date: Optional[str] = None
     follow_up_reason: Optional[str] = ""
 
@@ -422,26 +424,49 @@ async def close_case(case_id: str, data: CloseCaseRequest, user=Depends(get_curr
     if not case:
         raise HTTPException(404, "Case not found")
     now = datetime.now(timezone.utc)
-    update = {
-        "status": "closed", "amount": data.amount, "is_paid": data.is_paid,
-        "payment_mode": data.payment_mode if data.is_paid else None,
-        "paid_amount": data.amount if data.is_paid else 0.0,
-        "paid_at": now if data.is_paid else None,
+
+    update: dict = {
+        "status": "closed",
+        "treatment_status": data.treatment_status,
         "updated_at": now,
     }
+
+    if data.treatment_status == "treated":
+        # Calculate actual paid amount based on payment_status
+        if data.payment_status == "full":
+            actual_paid = data.amount
+        elif data.payment_status == "partial":
+            actual_paid = max(0.0, data.paid_amount)
+        else:  # not_paid / collect_later
+            actual_paid = 0.0
+
+        update.update({
+            "amount": data.amount,
+            "payment_status": data.payment_status,
+            "payment_mode": data.payment_mode if data.payment_status != "not_paid" else None,
+            "paid_amount": actual_paid,
+            "is_paid": data.payment_status == "full",
+            "paid_at": now if actual_paid > 0 else None,
+        })
+    else:
+        # Not treated — no charges
+        update.update({
+            "amount": 0.0, "payment_status": "not_applicable",
+            "payment_mode": None, "paid_amount": 0.0,
+            "is_paid": False, "paid_at": None,
+        })
+
     fu_date = parse_date(data.follow_up_date)
-    if fu_date:
+    if fu_date and data.treatment_status == "treated":
         update["follow_up_date"] = fu_date
         fu_reason = data.follow_up_reason.strip() if data.follow_up_reason else "Follow-up"
-        # Create follow-up case
         await db.cases.insert_one({
             "vet_id": user["id"], "owner_name": case["owner_name"], "mobile": case["mobile"],
             "village_name": case.get("village_name", ""), "animal_type": case["animal_type"],
             "visit_reason": fu_reason, "visit_date": fu_date, "amount": 0.0,
             "notes": f"Follow-up from {case['visit_reason']} on {case.get('visit_date', case['created_at']).strftime('%d/%m/%Y')}",
-            "status": "upcoming",
-            "is_paid": False, "payment_mode": None, "paid_amount": 0.0, "paid_at": None,
-            "follow_up_date": None, "forwarded_to_name": "", "forwarded_from": "",
+            "status": "upcoming", "is_paid": False, "payment_mode": None, "paid_amount": 0.0,
+            "paid_at": None, "follow_up_date": None, "forwarded_to_name": "", "forwarded_from": "",
             "created_at": now, "updated_at": now,
         })
     await db.cases.update_one({"_id": ObjectId(case_id)}, {"$set": update})
@@ -502,17 +527,32 @@ async def list_cases(status: Optional[str] = None, skip: int = 0, limit: int = 5
 
 @api_router.get("/ledger/outstanding")
 async def outstanding(period: str = "all", user=Depends(get_current_user)):
-    query: dict = {"vet_id": user["id"], "status": "closed", "is_paid": False}
+    # Outstanding = closed cases where amount > paid_amount (includes partial payments)
+    query: dict = {
+        "vet_id": user["id"], "status": "closed",
+        "treatment_status": {"$ne": "not_treated"},
+        "amount": {"$gt": 0},
+        "is_paid": False,
+    }
     if period == "week":
         query["created_at"] = {"$gte": datetime.now(timezone.utc) - timedelta(days=7)}
     elif period == "month":
         query["created_at"] = {"$gte": datetime.now(timezone.utc) - timedelta(days=30)}
+
+    # Total outstanding = sum of (amount - paid_amount)
     agg = await db.cases.aggregate([
-        {"$match": query}, {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+        {"$match": query},
+        {"$group": {"_id": None, "total": {"$sum": {"$subtract": ["$amount", "$paid_amount"]}}}}
     ]).to_list(1)
     total_amount = agg[0]["total"] if agg else 0
+
     cursor = db.cases.find(query).sort("created_at", -1).limit(100)
-    return {"total_outstanding": total_amount, "cases": [fmt_case(c) async for c in cursor]}
+    cases = []
+    async for c in cursor:
+        fc = fmt_case(c)
+        fc["outstanding"] = round(c.get("amount", 0) - c.get("paid_amount", 0), 2)
+        cases.append(fc)
+    return {"total_outstanding": round(total_amount, 2), "cases": cases}
 
 # ─────────────────────────── dashboard stats ──────────────────────────────────
 
