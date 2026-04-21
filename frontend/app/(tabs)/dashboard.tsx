@@ -8,6 +8,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import * as Contacts from 'expo-contacts';
+import * as Clipboard from 'expo-clipboard';
 import DatePickerModal from '../../components/DatePicker';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
@@ -78,6 +79,12 @@ export default function DashboardScreen() {
   const [contactList, setContactList] = useState<{ name: string; phone: string }[]>([]);
   const [showContactPicker, setShowContactPicker] = useState(false);
   const [contactSearch, setContactSearch] = useState('');
+  // Clipboard + farmer lookup
+  const [clipboardBanner, setClipboardBanner] = useState('');
+  const [knownFarmers, setKnownFarmers] = useState<any[]>([]);
+  const [farmerSuggestions, setFarmerSuggestions] = useState<any[]>([]);
+  const [showFarmerSug, setShowFarmerSug] = useState(false);
+  const [autoFilledBanner, setAutoFilledBanner] = useState('');
 
   // Close Case
   const [closeCase, setCloseCase] = useState<Case | null>(null);
@@ -123,12 +130,76 @@ export default function DashboardScreen() {
   const openQuickAdd = async () => {
     setQuickForm({ owner_name: '', mobile: '', village_name: '', animal_type: '', visit_reason: '', notes: '' });
     setVisitDate(new Date());
-    if (token) {
-      const res = await fetch(`${BACKEND_URL}/api/villages`, { headers: { Authorization: `Bearer ${token}` } });
-      const d = await res.json();
-      setAllVillages(d.villages || []);
-    }
+    setClipboardBanner('');
+    setAutoFilledBanner('');
+    setFarmerSuggestions([]);
+    setShowFarmerSug(false);
     setShowQuickAdd(true);
+
+    if (token) {
+      // Load villages + known farmers in parallel
+      const [vRes, fRes] = await Promise.all([
+        fetch(`${BACKEND_URL}/api/villages`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${BACKEND_URL}/api/cases/farmer-lookup`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      const [vData, fData] = await Promise.all([vRes.json(), fRes.json()]);
+      setAllVillages(vData.villages || []);
+      setKnownFarmers(fData.farmers || []);
+
+      // Check clipboard for a phone number
+      try {
+        const clip = await Clipboard.getStringAsync();
+        const digits = clip?.replace(/\D/g, '') || '';
+        if (digits.length === 10) {
+          setClipboardBanner(digits);
+        }
+      } catch (e) { /* clipboard permission denied on some devices */ }
+    }
+  };
+
+  const applyClipboardNumber = (num: string) => {
+    setQuickForm(f => ({ ...f, mobile: num }));
+    setClipboardBanner('');
+    checkAndAutoFillFarmer(num);
+  };
+
+  const checkAndAutoFillFarmer = (mobile: string) => {
+    if (mobile.length !== 10) return;
+    const match = knownFarmers.find(f => f.mobile === mobile);
+    if (match) {
+      setQuickForm(f => ({ ...f, mobile, owner_name: match.owner_name, village_name: match.village_name || f.village_name }));
+      setAutoFilledBanner(`✅ Found: ${match.owner_name}${match.village_name ? ` · ${match.village_name}` : ''} (${match.case_count} prev visit${match.case_count > 1 ? 's' : ''})`);
+      setShowFarmerSug(false);
+    } else {
+      setAutoFilledBanner('');
+    }
+  };
+
+  const handleMobileChange = (v: string) => {
+    const digits = v.replace(/\D/g, '').slice(0, 10);
+    setQuickForm(f => ({ ...f, mobile: digits }));
+    setAutoFilledBanner('');
+    if (digits.length === 10) checkAndAutoFillFarmer(digits);
+  };
+
+  const handleOwnerNameChange = (v: string) => {
+    setQuickForm(f => ({ ...f, owner_name: v }));
+    setAutoFilledBanner('');
+    if (v.length >= 2) {
+      const matches = knownFarmers.filter(f =>
+        f.owner_name.toLowerCase().includes(v.toLowerCase())
+      ).slice(0, 5);
+      setFarmerSuggestions(matches);
+      setShowFarmerSug(matches.length > 0);
+    } else {
+      setShowFarmerSug(false);
+    }
+  };
+
+  const selectFarmerSuggestion = (farmer: any) => {
+    setQuickForm(f => ({ ...f, owner_name: farmer.owner_name, mobile: farmer.mobile, village_name: farmer.village_name || f.village_name }));
+    setAutoFilledBanner(`✅ Loaded: ${farmer.owner_name}${farmer.village_name ? ` · ${farmer.village_name}` : ''} (${farmer.case_count} visit${farmer.case_count > 1 ? 's' : ''})`);
+    setShowFarmerSug(false);
   };
 
   const handleVillageChange = (text: string) => {
@@ -410,6 +481,20 @@ export default function DashboardScreen() {
               </View>
 
               <ScrollView style={styles.sheetScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                {/* Clipboard Banner */}
+                {!!clipboardBanner && (
+                  <TouchableOpacity testID="clipboard-banner"
+                    style={styles.clipboardBanner}
+                    onPress={() => applyClipboardNumber(clipboardBanner)}>
+                    <Text style={styles.clipboardEmoji}>📋</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.clipboardText}>Copied number detected</Text>
+                      <Text style={styles.clipboardNumber}>{clipboardBanner}</Text>
+                    </View>
+                    <Text style={styles.clipboardUse}>Use ▶</Text>
+                  </TouchableOpacity>
+                )}
+
                 {/* Visit Date */}
                 <Text style={styles.inputLabel}>VISIT DATE</Text>
                 <TouchableOpacity testID="date-picker-btn" style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
@@ -428,7 +513,7 @@ export default function DashboardScreen() {
                     placeholderTextColor="#9EB09F"
                     keyboardType="phone-pad"
                     value={quickForm.mobile}
-                    onChangeText={v => setQuickForm(f => ({ ...f, mobile: v.replace(/\D/g, '').slice(0, 10) }))}
+                    onChangeText={handleMobileChange}
                     maxLength={10}
                   />
                   <TouchableOpacity testID="pick-contact-btn" style={styles.contactBtn} onPress={pickFromContacts}>
@@ -437,7 +522,7 @@ export default function DashboardScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Owner Name */}
+                {/* Owner Name with farmer suggestions */}
                 <Text style={styles.inputLabel}>OWNER NAME</Text>
                 <TextInput
                   testID="quick-owner-input"
@@ -445,8 +530,32 @@ export default function DashboardScreen() {
                   placeholder="Pet owner's name"
                   placeholderTextColor="#9EB09F"
                   value={quickForm.owner_name}
-                  onChangeText={v => setQuickForm(f => ({ ...f, owner_name: v }))}
+                  onChangeText={handleOwnerNameChange}
                 />
+                {showFarmerSug && (
+                  <View style={styles.farmerDropdown}>
+                    {farmerSuggestions.map(f => (
+                      <TouchableOpacity key={f.mobile} testID={`farmer-sug-${f.mobile}`}
+                        style={styles.farmerDropdownItem}
+                        onPress={() => selectFarmerSuggestion(f)}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.farmerSugName}>{f.owner_name}</Text>
+                          <Text style={styles.farmerSugMeta}>
+                            {f.mobile}{f.village_name ? ` · ${f.village_name}` : ''} · {f.case_count} visit{f.case_count > 1 ? 's' : ''}
+                          </Text>
+                        </View>
+                        <Text style={styles.farmerSugArrow}>→</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {/* Auto-fill banner */}
+                {!!autoFilledBanner && (
+                  <View style={styles.autoFilledBanner} testID="autofill-banner">
+                    <Text style={styles.autoFilledText}>{autoFilledBanner}</Text>
+                  </View>
+                )}
 
                 {/* Village */}
                 <Text style={styles.inputLabel}>VILLAGE / AREA</Text>
@@ -561,8 +670,11 @@ export default function DashboardScreen() {
             <FlatList data={filteredContacts} keyExtractor={(_, i) => `${i}`}
               renderItem={({ item }) => (
                 <TouchableOpacity style={styles.contactItem} onPress={() => {
-                  setQuickForm(f => ({ ...f, owner_name: item.name, mobile: item.phone.replace(/\D/g, '').slice(-10) }));
+                  const digits = item.phone.replace(/\D/g, '').slice(-10);
+                  setQuickForm(f => ({ ...f, owner_name: item.name, mobile: digits }));
                   setShowContactPicker(false);
+                  setContactSearch('');
+                  checkAndAutoFillFarmer(digits);
                 }}>
                   <View style={styles.contactAvatar}><Text style={styles.contactAvatarText}>{item.name[0]?.toUpperCase()}</Text></View>
                   <View><Text style={styles.contactName}>{item.name}</Text><Text style={styles.contactPhone}>{item.phone}</Text></View>
@@ -816,6 +928,32 @@ const styles = StyleSheet.create({
   villageDropdown: { backgroundColor: C.surface, borderRadius: 10, borderWidth: 1, borderColor: C.border, marginTop: -6, marginBottom: 4 },
   villageItem: { paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: '#F0F4F1' },
   villageItemText: { fontSize: 14, color: C.text },
+  // Clipboard + farmer lookup styles
+  clipboardBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#E8F4FD', borderRadius: 12, padding: 12, marginBottom: 12,
+    borderWidth: 1.5, borderColor: '#90CAF9',
+  },
+  clipboardEmoji: { fontSize: 20 },
+  clipboardText: { fontSize: 12, color: '#1565C0', fontWeight: '600' },
+  clipboardNumber: { fontSize: 16, fontWeight: '800', color: '#0D47A1' },
+  clipboardUse: { fontSize: 13, fontWeight: '700', color: '#1565C0', paddingHorizontal: 4 },
+  farmerDropdown: {
+    backgroundColor: C.surface, borderRadius: 12, borderWidth: 1, borderColor: C.border,
+    marginTop: -6, marginBottom: 6, overflow: 'hidden',
+  },
+  farmerDropdownItem: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14,
+    borderBottomWidth: 1, borderBottomColor: '#F0F7F0',
+  },
+  farmerSugName: { fontSize: 14, fontWeight: '700', color: C.text },
+  farmerSugMeta: { fontSize: 12, color: C.sub, marginTop: 2 },
+  farmerSugArrow: { fontSize: 16, color: C.primary },
+  autoFilledBanner: {
+    backgroundColor: '#E8F5E9', borderRadius: 10, padding: 10, marginBottom: 8,
+    borderLeftWidth: 3, borderLeftColor: C.primary,
+  },
+  autoFilledText: { fontSize: 13, color: C.primary, fontWeight: '600' },
   rowInputs: { flexDirection: 'row' },
   pickerBtn: { height: 50, borderRadius: 14, backgroundColor: C.fill, paddingHorizontal: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   pickerText: { fontSize: 14, color: C.text, flex: 1 },

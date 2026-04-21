@@ -365,7 +365,40 @@ async def taluks(state: str, district: str):
 
 # ─────────────────────────── villages autocomplete ────────────────────────────
 
-@api_router.get("/villages")
+@api_router.get("/cases/farmer-lookup")
+async def farmer_lookup(q: str = "", user=Depends(get_current_user)):
+    """Return distinct known farmers for this vet (by name or mobile search)."""
+    base_query: dict = {"vet_id": user["id"]}
+    if q:
+        base_query["$or"] = [
+            {"mobile": {"$regex": q, "$options": "i"}},
+            {"owner_name": {"$regex": q, "$options": "i"}},
+        ]
+    pipeline = [
+        {"$match": base_query},
+        {"$sort": {"created_at": -1}},
+        {"$group": {
+            "_id": "$mobile",
+            "owner_name": {"$first": "$owner_name"},
+            "mobile": {"$first": "$mobile"},
+            "village_name": {"$first": "$village_name"},
+            "case_count": {"$sum": 1},
+            "last_visit": {"$first": "$created_at"},
+        }},
+        {"$sort": {"last_visit": -1}},
+        {"$limit": 8},
+    ]
+    results = await db.cases.aggregate(pipeline).to_list(8)
+    farmers = [
+        {
+            "owner_name": r["owner_name"],
+            "mobile": r["mobile"],
+            "village_name": r.get("village_name", ""),
+            "case_count": r["case_count"],
+        }
+        for r in results
+    ]
+    return {"farmers": farmers}
 async def villages(user=Depends(get_current_user)):
     vlist = await db.cases.distinct("village_name", {"vet_id": user["id"], "village_name": {"$nin": [None, ""]}})
     return {"villages": sorted([v for v in vlist if v])}
