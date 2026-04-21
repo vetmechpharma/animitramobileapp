@@ -1,36 +1,35 @@
 {
-  "theme": "LIGHT",
-  "archetype": "1 (Organic & Earthy)",
-  "global_design_principles": [
-    "Medical Trust through Color: Use the deep forest green as the anchor, soft sage as the supportive tint, and off-white as the canvas to evoke a natural, trustworthy, and calm medical environment.",
-    "Bento Grid for Mobile: Dashboard cards must not just float; they should act as a tightly packed grid of actionable widgets with generous internal padding.",
-    "Tactile Inputs: The OTP/Coupon boxes and form fields should have substantial height (min 56px) and subtle border changes on focus, offering physical 'weight' to the interaction.",
-    "Generous Negative Space: Avoid clutter. Text and cards should have ample breathing room."
-  ],
+  "theme": "Light",
+  "archetype": "Organic & Earthy",
   "colors": {
     "primary": "#2E7D32",
-    "primary_light": "#4CAF50",
-    "accent": "#81C784",
-    "background": "#FDFBF7",
+    "primaryLight": "#4CAF50",
+    "primaryDark": "#1B5E20",
+    "fill": "#EDF7EE",
     "surface": "#FFFFFF",
-    "surface_secondary": "#E8F5E9",
-    "text_primary": "#0A1F10",
-    "text_secondary": "#4A5D4E",
-    "border": "#E0E8E1",
-    "success": "#2E7D32",
-    "error": "#D32F2F"
+    "background": "#F6FBF6",
+    "text": {
+      "primary": "#1C2B20",
+      "secondary": "#4B6352",
+      "disabled": "#A5BCA9"
+    },
+    "border": "#D4E8D6",
+    "status": {
+      "success": "#388E3C",
+      "warning": "#F57C00",
+      "error": "#D32F2F",
+      "info": "#1976D2"
+    }
   },
   "typography": {
-    "font_family_heading": "System (Platform-default bold/heavy)",
-    "font_family_body": "System (Platform-default regular)",
-    "scale": {
-      "h1": { "fontSize": 32, "fontWeight": "800", "letterSpacing": -1 },
-      "h2": { "fontSize": 24, "fontWeight": "700", "letterSpacing": -0.5 },
-      "h3": { "fontSize": 18, "fontWeight": "600", "letterSpacing": 0 },
-      "body": { "fontSize": 16, "fontWeight": "400", "lineHeight": 24 },
-      "label": { "fontSize": 14, "fontWeight": "600", "letterSpacing": 0.5, "textTransform": "uppercase" },
-      "caption": { "fontSize": 12, "fontWeight": "500", "color": "#4A5D4E" }
-    }
+    "instruction": "Use system fonts optimized with strict tracking and lineHeight for a premium feel. Since @expo-google-fonts is not permitted, these properties will make the default system fonts look intentional and high-end.",
+    "h1": { "fontSize": 32, "fontWeight": "800", "letterSpacing": -1, "lineHeight": 40 },
+    "h2": { "fontSize": 24, "fontWeight": "700", "letterSpacing": -0.5, "lineHeight": 32 },
+    "h3": { "fontSize": 20, "fontWeight": "600", "letterSpacing": -0.25, "lineHeight": 28 },
+    "h4": { "fontSize": 18, "fontWeight": "600", "letterSpacing": 0, "lineHeight": 24 },
+    "bodyLarge": { "fontSize": 16, "fontWeight": "500", "letterSpacing": 0.2, "lineHeight": 24 },
+    "body": { "fontSize": 14, "fontWeight": "400", "letterSpacing": 0.2, "lineHeight": 20 },
+    "caption": { "fontSize": 12, "fontWeight": "700", "letterSpacing": 0.5, "lineHeight": 16, "textTransform": "uppercase" }
   },
   "spacing": {
     "xs": 4,
@@ -38,123 +37,69 @@
     "md": 16,
     "lg": 24,
     "xl": 32,
-    "2xl": 48
+    "xxl": 48
   },
   "radii": {
     "sm": 8,
     "md": 12,
-    "lg": 16,
-    "xl": 24,
-    "full": 9999
+    "lg": 20,
+    "round": 9999
   },
   "shadows": {
-    "card": {
-      "shadowColor": "#0A1F10",
-      "shadowOffset": { "width": 0, "height": 4 },
-      "shadowOpacity": 0.05,
-      "shadowRadius": 12,
-      "elevation": 2
-    }
+    "instruction": "Since Expo 54 deprecates the old shadow* props, use the modern 'boxShadow' string style. E.g., '0px 4px 12px rgba(46, 125, 50, 0.08)'",
+    "sm": { "boxShadow": "0px 2px 8px rgba(46, 125, 50, 0.05)" },
+    "md": { "boxShadow": "0px 4px 12px rgba(46, 125, 50, 0.08)" },
+    "lg": { "boxShadow": "0px 8px 24px rgba(46, 125, 50, 0.12)" }
   },
   "components": {
-    "SplashScreen": {
-      "layout": "Flex center, full screen, background color #FDFBF7",
-      "logo_container": "Circle with background #E8F5E9, padding 24px, border radius 9999px",
-      "logo_emoji": "🐾, font size 64px",
-      "brand_text": "text h1, color #2E7D32, margin-top 24px"
+    "Card": {
+      "backgroundColor": "surface",
+      "borderRadius": 12,
+      "padding": 16,
+      "boxShadow": "0px 4px 12px rgba(46, 125, 50, 0.08)",
+      "borderWidth": 1,
+      "borderColor": "border"
     },
-    "LoginScreen": {
-      "layout": "SafeAreaView, padding horizontal 24px",
-      "form_container": "Margin top 48px, gap 16px",
-      "input": {
-        "height": 56,
+    "Button": {
+      "primary": {
+        "backgroundColor": "primary",
         "borderRadius": 12,
-        "borderWidth": 1,
-        "borderColor": "#E0E8E1",
-        "backgroundColor": "#FFFFFF",
-        "paddingHorizontal": 16,
-        "fontSize": 16,
-        "color": "#0A1F10"
-      },
-      "button": {
-        "height": 56,
-        "backgroundColor": "#2E7D32",
-        "borderRadius": 16,
-        "justifyContent": "center",
+        "paddingVertical": 16,
+        "paddingHorizontal": 24,
         "alignItems": "center",
-        "marginTop": 24
-      },
-      "button_text": { "color": "#FFFFFF", "fontSize": 16, "fontWeight": "700" }
-    },
-    "RegistrationScreen": {
-      "layout": "SafeAreaView + ScrollView (keyboard-aware ideally), padding 24px",
-      "dropdown_trigger": {
-        "height": 56,
-        "borderRadius": 12,
-        "borderWidth": 1,
-        "borderColor": "#E0E8E1",
-        "backgroundColor": "#FFFFFF",
-        "paddingHorizontal": 16,
-        "flexDirection": "row",
-        "justifyContent": "space-between",
-        "alignItems": "center"
+        "justifyContent": "center"
       }
     },
-    "CouponScreen": {
-      "instruction_text": "text h3, text align center, color #4A5D4E, margin bottom 32px",
-      "otp_container": "flex-row, justify-between, margin bottom 32px, flex wrap for 8 items",
-      "otp_box": {
-        "width": 40,
-        "height": 56,
-        "borderWidth": 2,
-        "borderColor": "#E0E8E1",
-        "borderRadius": 12,
-        "backgroundColor": "#FFFFFF",
-        "textAlign": "center",
-        "fontSize": 20,
-        "fontWeight": "800",
-        "color": "#2E7D32"
-      },
-      "otp_box_focused": { "borderColor": "#4CAF50", "backgroundColor": "#E8F5E9" }
-    },
-    "DashboardScreen": {
-      "header": {
-        "flexDirection": "row",
-        "justifyContent": "space-between",
-        "alignItems": "center",
-        "paddingHorizontal": 24,
-        "paddingTop": 16,
-        "paddingBottom": 24
-      },
-      "avatar": { "width": 48, "height": 48, "borderRadius": 24, "backgroundColor": "#E8F5E9", "justifyContent": "center", "alignItems": "center" },
-      "grid_container": { "flexDirection": "row", "flexWrap": "wrap", "justifyContent": "space-between", "paddingHorizontal": 24 },
-      "stat_card": {
-        "width": "48%",
-        "aspectRatio": 1,
-        "backgroundColor": "#FFFFFF",
-        "borderRadius": 20,
-        "padding": 16,
-        "marginBottom": 16,
-        "justifyContent": "space-between"
-      },
-      "card_icon_wrapper": { "width": 40, "height": 40, "borderRadius": 20, "backgroundColor": "#E8F5E9", "justifyContent": "center", "alignItems": "center" },
-      "card_number": { "fontSize": 28, "fontWeight": "800", "color": "#0A1F10" },
-      "card_title": { "fontSize": 14, "fontWeight": "600", "color": "#4A5D4E", "marginTop": 4 }
+    "Input": {
+      "backgroundColor": "surface",
+      "borderColor": "border",
+      "borderWidth": 1,
+      "borderRadius": 12,
+      "padding": 16,
+      "fontSize": 16,
+      "color": "text.primary"
     }
   },
-  "testing": {
-    "attributes": [
-      "All buttons, inputs, and touchable elements MUST include testID (React Native equivalent of data-testid).",
-      "Format: kebab-case, e.g., testID='login-submit-button', testID='coupon-input-0'"
-    ]
+  "media": {
+    "login_hero_image": {
+      "url": "https://images.unsplash.com/photo-1678700522228-8e581754ac8c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHwxfHxjdXRlJTIwZG9nJTIwZ3JlZW4lMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc3Njc2Nzk3OHww&ixlib=rb-4.1.0&q=85",
+      "description": "A beautiful dog on a green field. Use this as a header banner in the login or welcome screen to evoke trust and nature.",
+      "category": "hero"
+    },
+    "animitra_logo_instruction": {
+      "url": "",
+      "description": "Construct the Animitra logo natively using React Native Vector Icons (e.g., FontAwesome5 'paw' or MaterialCommunityIcons 'leaf') and a bold Text component side-by-side. Both should be colored #2E7D32. Do not use placeholder images.",
+      "category": "logo"
+    }
   },
   "instructions_to_main_agent": [
-    "CRITICAL: Use standard React Native components ONLY (View, Text, TouchableOpacity, TextInput, ScrollView, SafeAreaView, StyleSheet). Do not use Tailwind/HTML elements since this is an Expo App.",
-    "Use standard StyleSheet.create for styling, translating the provided design system into React Native styles.",
-    "For the logo, use the paw print emoji 🐾 wrapped in a Text element as requested in the problem statement.",
-    "For the dashboard icons, you can use Lucide-react-native or vector-icons if available, or text emojis if icons are not installed.",
-    "The 8-digit coupon input must be split into 8 separate aesthetic boxes.",
-    "Do NOT use HTML elements like <div> or <span>.",
-    "Keep touch targets at least 48px (min 44px requested, but use 56px for inputs/buttons for E1 generocity)."
+    "Strictly use React Native components and StyleSheet. No Tailwind CSS.",
+    "Apply the exact typography scales (fontSize, fontWeight, letterSpacing, lineHeight) using system fonts. This is critical for achieving the premium SaaS look without external fonts.",
+    "Implement 'testID' attributes (the React Native equivalent of data-testid) for all interactive and key informational elements, e.g., testID='login-button'.",
+    "CRITICAL: React Native 0.76+ (Expo 54) deprecates `shadowColor`, `shadowOffset`, etc. You MUST use `boxShadow: '0px 4px 12px rgba(46, 125, 50, 0.08)'` instead.",
+    "Replace generic black shadows with the green-tinted shadows provided in the shadows configuration. This deeply integrates the brand color into the physical depth of the app.",
+    "Use a background color of #F6FBF6 for all main screens so that cards with #FFFFFF background pop out nicely.",
+    "The 6 stat cards on the dashboard should use the 'sm' or 'md' shadow and a border-radius of 12. Generous padding (16px) is a must.",
+    "Modals and Bottom Sheets (like Quick Add) should use the 'lg' border-radius (20px) on the top-left and top-right corners."
   ]
 }
