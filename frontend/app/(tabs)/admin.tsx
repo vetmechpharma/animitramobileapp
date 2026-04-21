@@ -4,6 +4,7 @@ import {
   TouchableOpacity, ActivityIndicator, Alert, RefreshControl,
   TextInput, Modal, Platform,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
@@ -22,6 +23,7 @@ const ADMIN_TABS = [
 
 export default function AdminScreen() {
   const { token } = useAuth();
+  const router = useRouter();
   const [tab, setTab] = useState('stats');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -129,9 +131,13 @@ export default function AdminScreen() {
 
   return (
     <SafeAreaView style={s.safe}>
-      {/* Header */}
-      <View style={s.header}>
-        <Text style={s.headerTitle}>⚙️ Admin Panel</Text>
+      {/* Back Header */}
+      <View style={s.bkHeader}>
+        <TouchableOpacity testID="admin-back-btn" style={s.bkBtn} onPress={() => router.back()}>
+          <Text style={s.bkBtnText}>‹ Back</Text>
+        </TouchableOpacity>
+        <Text style={s.bkTitle}>⚙️ Admin Panel</Text>
+        <View style={{ width: 60 }} />
       </View>
 
       {/* Tabs */}
@@ -346,8 +352,10 @@ export default function AdminScreen() {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
-  header: { paddingHorizontal: 20, paddingVertical: 14, backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: C.text },
+  bkHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.surface, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border },
+  bkBtn: { paddingHorizontal: 4, paddingVertical: 4, minWidth: 60 },
+  bkBtnText: { fontSize: 16, color: C.primary, fontWeight: '600' },
+  bkTitle: { fontSize: 16, fontWeight: '700', color: C.text },
   tabBar: { flexDirection: 'row', backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 10, borderBottomWidth: 3, borderBottomColor: 'transparent' },
   tabActive: { borderBottomColor: C.primary },

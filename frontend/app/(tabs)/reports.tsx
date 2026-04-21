@@ -4,6 +4,7 @@ import {
   TouchableOpacity, ActivityIndicator, RefreshControl,
   Dimensions,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
@@ -31,6 +32,7 @@ const COLORS = ['#2E7D32','#1565C0','#E65100','#6A1B9A','#00695C','#AD1457','#4E
 
 export default function ReportsScreen() {
   const { token } = useAuth();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('animal');
   const [period, setPeriod] = useState('month');
   const [data, setData] = useState<any[]>([]);
@@ -71,6 +73,14 @@ export default function ReportsScreen() {
 
   return (
     <SafeAreaView style={s.safe}>
+      {/* Back Header */}
+      <View style={s.backHeader}>
+        <TouchableOpacity testID="reports-back-btn" style={s.backBtn} onPress={() => router.back()}>
+          <Text style={s.backBtnText}>‹ Back</Text>
+        </TouchableOpacity>
+        <Text style={s.backTitle}>Reports & Analytics</Text>
+        <View style={{ width: 60 }} />
+      </View>
       {/* Report type tabs */}
       <View style={s.tabBar}>
         {REPORT_TABS.map(t => (
@@ -168,6 +178,14 @@ export default function ReportsScreen() {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
+  backHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: C.surface, paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: C.border,
+  },
+  backBtn: { paddingHorizontal: 4, paddingVertical: 4, minWidth: 60 },
+  backBtnText: { fontSize: 16, color: C.primary, fontWeight: '600' },
+  backTitle: { fontSize: 16, fontWeight: '700', color: C.text },
   tabBar: { flexDirection: 'row', backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border },
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 3, borderBottomColor: 'transparent' },
   tabActive: { borderBottomColor: C.primary },

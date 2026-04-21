@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import { useRouter } from 'expo-router';
 
 const C = {
   primary: '#2E7D32', bg: '#F6FBF6', surface: '#FFFFFF', fill: '#EDF7EE',
@@ -14,8 +15,17 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
 );
 
 export default function AboutScreen() {
+  const router = useRouter();
   return (
     <SafeAreaView style={s.safe}>
+      {/* Back Header */}
+      <View style={s.backHeader}>
+        <TouchableOpacity testID="about-back-btn" style={s.backBtn} onPress={() => router.back()}>
+          <Text style={s.backBtnText}>‹ Back</Text>
+        </TouchableOpacity>
+        <Text style={s.backTitle}>About Animitra</Text>
+        <View style={{ width: 60 }} />
+      </View>
       <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
         {/* Logo */}
         <View style={s.header}>
@@ -148,6 +158,10 @@ export default function AboutScreen() {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
+  backHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.surface, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border },
+  backBtn: { paddingHorizontal: 4, paddingVertical: 4, minWidth: 60 },
+  backBtnText: { fontSize: 16, color: C.primary, fontWeight: '600' },
+  backTitle: { fontSize: 16, fontWeight: '700', color: C.text },
   scroll: { flex: 1 },
   content: { paddingBottom: 40 },
   header: { alignItems: 'center', paddingVertical: 32, backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border },
