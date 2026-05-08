@@ -365,6 +365,12 @@ async def taluks(state: str, district: str):
 
 # ─────────────────────────── villages autocomplete ────────────────────────────
 
+@api_router.get("/villages")
+async def villages(user=Depends(get_current_user)):
+    vlist = await db.cases.distinct("village_name", {"vet_id": user["id"], "village_name": {"$nin": [None, ""]}})
+    return {"villages": sorted([v for v in vlist if v])}
+
+
 @api_router.get("/cases/farmer-lookup")
 async def farmer_lookup(q: str = "", user=Depends(get_current_user)):
     """Return distinct known farmers for this vet (by name or mobile search)."""
@@ -399,9 +405,7 @@ async def farmer_lookup(q: str = "", user=Depends(get_current_user)):
         for r in results
     ]
     return {"farmers": farmers}
-async def villages(user=Depends(get_current_user)):
-    vlist = await db.cases.distinct("village_name", {"vet_id": user["id"], "village_name": {"$nin": [None, ""]}})
-    return {"villages": sorted([v for v in vlist if v])}
+
 
 # ─────────────────────────── case routes ──────────────────────────────────────
 
