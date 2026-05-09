@@ -1,0 +1,33 @@
+{
+  "cli": {
+    "version": ">= 5.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "preview": {
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease",
+        "env": {
+          "EXPO_PUBLIC_BACKEND_URL": "https://app.vetmechpharma.in"
+        }
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle",
+        "env": {
+          "EXPO_PUBLIC_BACKEND_URL": "https://app.vetmechpharma.in"
+        }
+      },
+      "ios": {
+        "env": {
+          "EXPO_PUBLIC_BACKEND_URL": "https://app.vetmechpharma.in"
+        }
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
