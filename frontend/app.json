@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "animitra",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.vetmechpharma.animitra",
