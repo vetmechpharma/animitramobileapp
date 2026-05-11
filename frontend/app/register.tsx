@@ -11,7 +11,7 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { register } = useAuth();
+  const { register, setAuthData } = useAuth();
 
   const [form, setForm] = useState({
     name: '', reg_no: '', mobile: '', password: '', confirmPassword: '',
@@ -123,7 +123,9 @@ export default function RegisterScreen() {
     setLoading(true);
     try {
       const result = await register({ name, reg_no, mobile, password, state, district, taluk });
-      router.push({ pathname: '/activate', params: { token: result.token, name: name } });
+      // Direct login after register — 3-day free trial starts now
+      await setAuthData(result.token, result.user);
+      router.replace('/(tabs)/dashboard');
     } catch (e: any) {
       Alert.alert('Registration Failed', e.message || 'Something went wrong');
     } finally {
@@ -338,58 +340,58 @@ const C = {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
-  scroll: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40 },
+  scroll: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 40 },
   header: { paddingTop: 16, paddingBottom: 24 },
   backBtn: { marginBottom: 16 },
-  backText: { fontSize: 16, color: C.primary, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
+  backText: { fontSize: 14, color: C.primary, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   logoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  logoEmoji: { fontSize: 28 },
-  appName: { fontSize: 22, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.primary },
-  pageTitle: { fontSize: 26, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.textPrimary, letterSpacing: -0.5 },
+  logoEmoji: { fontSize: 13 },
+  appName: { fontSize: 13, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.primary },
+  pageTitle: { fontSize: 21, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.textPrimary, letterSpacing: -0.5 },
   pageSubtitle: { fontSize: 14, color: C.textSecondary, marginTop: 4 },
   card: {
-    backgroundColor: C.surface, borderRadius: 28, padding: 24,
+    backgroundColor: C.surface, borderRadius: 28, padding: 16,
     boxShadow: '0px 3px 14px rgba(46,125,50,0.10)',
   },
-  sectionTitle: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.textPrimary, marginBottom: 14 },
+  sectionTitle: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.textPrimary, marginBottom: 14 },
   inputWrapper: { marginBottom: 14 },
   label: { fontSize: 12, fontWeight: '600', fontFamily: 'Inter_600SemiBold', color: C.textSecondary, marginBottom: 7, letterSpacing: 0.3 },
   input: {
-    height: 54, borderRadius: 14, backgroundColor: C.fill,
-    paddingHorizontal: 16, fontSize: 16, color: C.textPrimary,
+    height: 46, borderRadius: 14, backgroundColor: C.fill,
+    paddingHorizontal: 16, fontSize: 14, color: C.textPrimary,
   },
   passRow: { flexDirection: 'row', alignItems: 'center' },
-  eyeBtn: { position: 'absolute', right: 12, height: 54, justifyContent: 'center', paddingHorizontal: 8 },
+  eyeBtn: { position: 'absolute', right: 12, height: 46, justifyContent: 'center', paddingHorizontal: 8 },
   dropdown: {
-    height: 54, borderRadius: 14, backgroundColor: C.fill,
+    height: 46, borderRadius: 14, backgroundColor: C.fill,
     paddingHorizontal: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
   dropdownDisabled: { opacity: 0.5 },
-  dropdownText: { fontSize: 16, color: C.textPrimary, flex: 1 },
+  dropdownText: { fontSize: 14, color: C.textPrimary, flex: 1 },
   placeholder: { color: '#9BB89F' },
   dropdownArrow: { fontSize: 13, color: C.textSecondary },
   registerBtn: {
-    height: 56, backgroundColor: C.primary, borderRadius: 20,
+    height: 44, backgroundColor: C.primary, borderRadius: 20,
     justifyContent: 'center', alignItems: 'center', marginTop: 8,
     boxShadow: '0px 4px 20px rgba(46,125,50,0.28)',
   },
   btnDisabled: { opacity: 0.65 },
-  registerBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: 0.3 },
+  registerBtnText: { color: '#fff', fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: 0.3 },
   loginRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },
-  loginText: { fontSize: 15, color: C.textSecondary },
-  loginLink: { fontSize: 15, color: C.primary, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  loginText: { fontSize: 13, color: C.textSecondary },
+  loginLink: { fontSize: 13, color: C.primary, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
   modalSheet: {
     backgroundColor: C.surface, borderTopLeftRadius: 32, borderTopRightRadius: 32,
     paddingHorizontal: 16, paddingBottom: 36, maxHeight: '78%',
   },
   modalHandle: { width: 44, height: 4, backgroundColor: '#D0E8D2', borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 16 },
-  modalTitle: { fontSize: 18, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.textPrimary, marginBottom: 12, textAlign: 'center' },
+  modalTitle: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.textPrimary, marginBottom: 12, textAlign: 'center' },
   searchInput: {
-    height: 50, borderRadius: 14, backgroundColor: C.fill,
-    paddingHorizontal: 16, fontSize: 15, color: C.textPrimary, marginBottom: 8,
+    height: 44, borderRadius: 14, backgroundColor: C.fill,
+    paddingHorizontal: 16, fontSize: 13, color: C.textPrimary, marginBottom: 8,
   },
   dropdownList: { flexGrow: 0 },
   dropdownItem: { paddingVertical: 14, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: '#F0F7F0' },
-  dropdownItemText: { fontSize: 15, color: C.textPrimary },
+  dropdownItemText: { fontSize: 13, color: C.textPrimary },
 });

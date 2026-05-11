@@ -15,6 +15,8 @@ interface User {
   taluk?: string;
   is_activated: boolean;
   role: string;
+  is_trial?: boolean;
+  trial_days_left?: number;
 }
 
 interface AuthContextType {
@@ -79,6 +81,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const data = await res.json();
     if (!res.ok) {
+      if (data.detail === 'FREE_TRIAL_EXPIRED') {
+        throw new Error('FREE_TRIAL_EXPIRED');
+      }
       throw new Error(data.detail || 'Login failed');
     }
     await setAuthData(data.token, data.user);

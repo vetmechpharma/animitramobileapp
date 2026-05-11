@@ -298,18 +298,28 @@ async def register(data: RegisterRequest):
         raise HTTPException(400, "Password must be at least 6 characters")
     if await db.users.find_one({"mobile": data.mobile}):
         raise HTTPException(400, "Mobile number already registered")
+    now = datetime.now(timezone.utc)
     result = await db.users.insert_one({
         "name": data.name, "reg_no": data.reg_no, "mobile": data.mobile,
         "password_hash": hash_password(data.password), "state": data.state,
         "district": data.district, "taluk": data.taluk, "role": "vet",
         "is_activated": False, "coupon_code": None,
-        "created_at": datetime.now(timezone.utc),
+        "trial_start_date": now,
+        "created_at": now,
     })
     uid = str(result.inserted_id)
-    return {"success": True, "message": "Registration successful. Please activate your account.",
-            "token": create_token(uid, data.mobile), "user": {
-                "id": uid, "name": data.name, "mobile": data.mobile,
-                "is_activated": False, "role": "vet"}}
+    token = create_token(uid, data.mobile, "vet")
+    return {
+        "success": True, "message": "Registration successful. 3-day free trial started!",
+        "token": token,
+        "user": {
+            "id": uid, "name": data.name, "mobile": data.mobile,
+            "reg_no": data.reg_no, "state": data.state,
+            "district": data.district, "taluk": data.taluk,
+            "is_activated": False, "role": "vet",
+            "is_trial": True, "trial_days_left": 3,
+        }
+    }
 
 @api_router.post("/auth/activate")
 async def activate(data: ActivateRequest, user=Depends(get_current_user)):
@@ -334,16 +344,42 @@ async def login(data: LoginRequest):
     user = await db.users.find_one({"mobile": data.mobile})
     if not user or not verify_password(data.password, user["password_hash"]):
         raise HTTPException(401, "Invalid mobile number or password")
-    if not user.get("is_activated"):
-        raise HTTPException(403, "Account not activated. Please enter your coupon code.")
     if user.get("is_suspended"):
         raise HTTPException(403, "Account suspended. Contact Animitra support.")
+
     uid = str(user["_id"])
-    return {"success": True, "token": create_token(uid, data.mobile, user.get("role", "vet")),
-            "user": {"id": uid, "name": user["name"], "mobile": user["mobile"],
-                     "reg_no": user.get("reg_no", ""), "state": user.get("state", ""),
-                     "district": user.get("district", ""), "taluk": user.get("taluk", ""),
-                     "is_activated": True, "role": user.get("role", "vet")}}
+    role = user.get("role", "vet")
+
+    # Activated users — full access
+    if user.get("is_activated"):
+        return {"success": True, "token": create_token(uid, data.mobile, role),
+                "user": {
+                    "id": uid, "name": user["name"], "mobile": user["mobile"],
+                    "reg_no": user.get("reg_no", ""), "state": user.get("state", ""),
+                    "district": user.get("district", ""), "taluk": user.get("taluk", ""),
+                    "is_activated": True, "role": role,
+                    "is_trial": False, "trial_days_left": 0,
+                }}
+
+    # Trial logic — check 3-day trial
+    trial_start = user.get("trial_start_date") or user.get("created_at", datetime.now(timezone.utc))
+    if trial_start.tzinfo is None:
+        trial_start = trial_start.replace(tzinfo=timezone.utc)
+    days_elapsed = (datetime.now(timezone.utc) - trial_start).days
+    trial_days_left = max(0, 3 - days_elapsed)
+
+    if days_elapsed >= 3:
+        raise HTTPException(403, f"FREE_TRIAL_EXPIRED")
+
+    # Within trial — allow login
+    return {"success": True, "token": create_token(uid, data.mobile, role),
+            "user": {
+                "id": uid, "name": user["name"], "mobile": user["mobile"],
+                "reg_no": user.get("reg_no", ""), "state": user.get("state", ""),
+                "district": user.get("district", ""), "taluk": user.get("taluk", ""),
+                "is_activated": False, "role": role,
+                "is_trial": True, "trial_days_left": trial_days_left,
+            }}
 
 @api_router.get("/auth/me")
 async def me(user=Depends(get_current_user)):
@@ -850,6 +886,78 @@ async def admin_export_users(user=Depends(get_admin_user)):
                      f"{u['created_at'].strftime('%Y-%m-%d')}")
     return PlainTextResponse("\n".join(lines), media_type="text/csv")
 
+
+@api_router.get("/admin/analytics/top-performers")
+async def top_performers(user=Depends(get_admin_user)):
+    vets = []
+    async for u in db.users.find({"role": "vet"}).sort("created_at", -1):
+        uid = str(u["_id"])
+        total_cases = await db.cases.count_documents({"vet_id": uid})
+        closed_cases = await db.cases.count_documents({"vet_id": uid, "status": "closed"})
+        pending_cases = await db.cases.count_documents({"vet_id": uid, "status": "pending"})
+        earnings_agg = await db.cases.aggregate([
+            {"$match": {"vet_id": uid, "is_paid": True}},
+            {"$group": {"_id": None, "total": {"$sum": "$paid_amount"}}}
+        ]).to_list(1)
+        total_earnings = earnings_agg[0]["total"] if earnings_agg else 0
+        outstanding_agg = await db.cases.aggregate([
+            {"$match": {"vet_id": uid, "status": "closed", "is_paid": False}},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+        ]).to_list(1)
+        outstanding = outstanding_agg[0]["total"] if outstanding_agg else 0
+        trial_start = u.get("trial_start_date") or u.get("created_at")
+        if trial_start and trial_start.tzinfo is None:
+            trial_start = trial_start.replace(tzinfo=timezone.utc)
+        days_elapsed = (datetime.now(timezone.utc) - trial_start).days if trial_start else 0
+        vets.append({
+            "id": uid, "name": u["name"], "mobile": u["mobile"],
+            "reg_no": u.get("reg_no", ""), "state": u.get("state", ""),
+            "district": u.get("district", ""), "taluk": u.get("taluk", ""),
+            "is_activated": u.get("is_activated", False),
+            "is_suspended": u.get("is_suspended", False),
+            "trial_days_elapsed": days_elapsed,
+            "total_cases": total_cases, "closed_cases": closed_cases,
+            "pending_cases": pending_cases,
+            "total_earnings": round(total_earnings, 2),
+            "outstanding": round(outstanding, 2),
+            "registered_at": u["created_at"].isoformat(),
+        })
+    by_cases = sorted(vets, key=lambda x: x["total_cases"], reverse=True)
+    by_earnings = sorted(vets, key=lambda x: x["total_earnings"], reverse=True)
+    return {"total_vets": len(vets), "by_cases": by_cases, "by_earnings": by_earnings}
+
+
+@api_router.get("/admin/export/owner-data")
+async def export_owner_data(user=Depends(get_admin_user)):
+    """Export all case owner data for WhatsApp/CSV sharing."""
+    pipeline = [
+        {"$group": {
+            "_id": "$mobile",
+            "owner_name": {"$first": "$owner_name"},
+            "mobile": {"$first": "$mobile"},
+            "village_name": {"$first": "$village_name"},
+            "animal_types": {"$addToSet": "$animal_type"},
+            "total_cases": {"$sum": 1},
+            "vet_id": {"$first": "$vet_id"},
+        }},
+        {"$sort": {"total_cases": -1}},
+        {"$limit": 500},
+    ]
+    results = await db.cases.aggregate(pipeline).to_list(500)
+    vet_cache: dict = {}
+    lines = ["OWNER NAME,MOBILE,VILLAGE,ANIMAL TYPES,TOTAL CASES,VET NAME,STATE,DISTRICT"]
+    for r in results:
+        vid = r.get("vet_id", "")
+        if vid not in vet_cache:
+            v = await db.users.find_one({"_id": ObjectId(vid)}) if vid else None
+            vet_cache[vid] = v
+        vet = vet_cache.get(vid)
+        vet_name = vet.get("name", "") if vet else ""
+        state = vet.get("state", "") if vet else ""
+        district = vet.get("district", "") if vet else ""
+        animals = "|".join(r.get("animal_types", []))
+        lines.append(f"{r['owner_name']},{r['mobile']},{r.get('village_name','')},{animals},{r['total_cases']},{vet_name},{state},{district}")
+    return PlainTextResponse("\n".join(lines), media_type="text/csv")
 
 @api_router.get("/admin/reports/summary")
 async def admin_reports_summary(user=Depends(get_admin_user)):

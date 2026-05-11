@@ -17,6 +17,7 @@ const C = {
 const ADMIN_TABS = [
   { key: 'stats', emoji: '📊', label: 'Overview' },
   { key: 'users', emoji: '👥', label: 'Users' },
+  { key: 'analytics', emoji: '🏆', label: 'Top' },
   { key: 'payments', emoji: '💰', label: 'Payments' },
   { key: 'coupons', emoji: '🎟️', label: 'Coupons' },
 ];
@@ -33,6 +34,9 @@ export default function AdminScreen() {
   // Users
   const [users, setUsers] = useState<any[]>([]);
   const [userSearch, setUserSearch] = useState('');
+  // Analytics
+  const [performers, setPerformers] = useState<{ by_cases: any[]; by_earnings: any[] }>({ by_cases: [], by_earnings: [] });
+  const [perfView, setPerfView] = useState<'cases' | 'earnings'>('cases');
   // Payments
   const [payments, setPayments] = useState<any[]>([]);
   // Coupons
@@ -59,6 +63,10 @@ export default function AdminScreen() {
         const r = await fetch(`${BACKEND_URL}/api/admin/users`, { headers: h });
         const d = await r.json();
         setUsers(d.users || []);
+      } else if (tab === 'analytics') {
+        const r = await fetch(`${BACKEND_URL}/api/admin/analytics/top-performers`, { headers: h });
+        const d = await r.json();
+        setPerformers({ by_cases: d.by_cases || [], by_earnings: d.by_earnings || [] });
       } else if (tab === 'payments') {
         const r = await fetch(`${BACKEND_URL}/api/admin/payment-submissions`, { headers: h });
         const d = await r.json();
@@ -245,7 +253,60 @@ export default function AdminScreen() {
               </>
             )}
 
-            {/* ── PAYMENTS ── */}
+            {/* ── ANALYTICS / TOP PERFORMERS ── */}
+            {tab === 'analytics' && (
+              <>
+                <View style={s.toggleRow}>
+                  {[{k:'cases',l:'🏆 By Cases'},{k:'earnings',l:'💰 By Earnings'}].map(({k,l}) => (
+                    <TouchableOpacity key={k} testID={`perf-${k}`}
+                      style={[s.toggleBtn, perfView===k && s.toggleActive]}
+                      onPress={() => setPerfView(k as any)}>
+                      <Text style={[{fontSize:13,fontFamily:'Inter_600SemiBold',color:C.text}, perfView===k && {color:'#fff'}]}>{l}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <TouchableOpacity testID="export-owner-data-btn"
+                  style={[s.exportBtn, {marginTop:8}]}
+                  onPress={async () => {
+                    try {
+                      const r = await fetch(`${BACKEND_URL}/api/admin/export/owner-data`, {headers: h});
+                      const csv = await r.text();
+                      const { Share } = require('react-native');
+                      await Share.share({ message: csv, title: 'Animitra Owner Data Export' });
+                    } catch(e) { Alert.alert('Error', 'Could not export data'); }
+                  }}>
+                  <Text style={s.exportBtnText}>📤 Export & Share via WhatsApp</Text>
+                </TouchableOpacity>
+                <Text style={[s.countText,{marginTop:12}]}>
+                  {perfView === 'cases' ? 'Ranked by Total Cases' : 'Ranked by Total Earnings'}
+                </Text>
+                {(perfView === 'cases' ? performers.by_cases : performers.by_earnings).map((v, i) => (
+                  <View key={v.id} style={[s.card, {marginBottom:8}]}>
+                    <View style={{flexDirection:'row', alignItems:'center', gap:10}}>
+                      <View style={{width:28,height:28,borderRadius:14,backgroundColor:i<3?'#FFD700':'#E8F5E9',justifyContent:'center',alignItems:'center'}}>
+                        <Text style={{fontFamily:'Inter_800ExtraBold',fontSize:13,color:i<3?'#795548':C.primary}}>#{i+1}</Text>
+                      </View>
+                      <View style={{flex:1}}>
+                        <Text style={{fontFamily:'Inter_700Bold',fontSize:14,color:C.text}}>{v.name}</Text>
+                        <Text style={{fontFamily:'Inter_400Regular',fontSize:11,color:C.sub}}>{v.mobile} · {v.district}, {v.state}</Text>
+                        <View style={{flexDirection:'row',gap:12,marginTop:3}}>
+                          <Text style={{fontFamily:'Inter_600SemiBold',fontSize:12,color:C.primary}}>{v.total_cases} cases</Text>
+                          <Text style={{fontFamily:'Inter_600SemiBold',fontSize:12,color:'#6A1B9A'}}>₹{v.total_earnings.toLocaleString('en-IN')}</Text>
+                          {v.outstanding > 0 && <Text style={{fontFamily:'Inter_500Medium',fontSize:11,color:C.error}}>₹{v.outstanding.toLocaleString('en-IN')} outstanding</Text>}
+                        </View>
+                      </View>
+                      <View style={{alignItems:'flex-end'}}>
+                        {!v.is_activated && <View style={{backgroundColor:'#FFF8E1',borderRadius:6,paddingHorizontal:6,paddingVertical:2}}><Text style={{fontSize:9,fontFamily:'Inter_700Bold',color:'#E65100'}}>TRIAL</Text></View>}
+                        {v.is_suspended && <View style={{backgroundColor:'#FFEBEE',borderRadius:6,paddingHorizontal:6,paddingVertical:2}}><Text style={{fontSize:9,fontFamily:'Inter_700Bold',color:C.error}}>SUSPENDED</Text></View>}
+                      </View>
+                    </View>
+                  </View>
+                ))}
+                {performers.by_cases.length === 0 && (
+                  <View style={s.empty}><Text style={s.emptyText}>No vet data yet</Text></View>
+                )}
+              </>
+            )}
             {tab === 'payments' && (
               <>
                 <View style={s.paymentSummary}>
@@ -354,12 +415,12 @@ const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
   bkHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.surface, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border },
   bkBtn: { paddingHorizontal: 4, paddingVertical: 4, minWidth: 60 },
-  bkBtnText: { fontSize: 16, color: C.primary, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
-  bkTitle: { fontSize: 16, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text },
+  bkBtnText: { fontSize: 14, color: C.primary, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
+  bkTitle: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text },
   tabBar: { flexDirection: 'row', backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 10, borderBottomWidth: 3, borderBottomColor: 'transparent' },
   tabActive: { borderBottomColor: C.primary },
-  tabEmoji: { fontSize: 18 },
+  tabEmoji: { fontSize: 13 },
   tabLabel: { fontSize: 10, fontWeight: '600', fontFamily: 'Inter_600SemiBold', color: C.sub, marginTop: 2 },
   tabLabelActive: { color: C.primary },
   scroll: { flex: 1 },
@@ -367,25 +428,28 @@ const s = StyleSheet.create({
   center: { paddingTop: 60, alignItems: 'center' },
   empty: { alignItems: 'center', paddingTop: 40 },
   emptyEmoji: { fontSize: 40, marginBottom: 8 },
-  emptyText: { fontSize: 15, color: C.sub },
+  emptyText: { fontSize: 13, color: C.sub },
   // Stats
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
   statCard: { width: '31%', backgroundColor: C.surface, borderRadius: 14, padding: 14, alignItems: 'center' },
-  statNum: { fontSize: 24, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
+  statNum: { fontSize: 14, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
   statLabel: { fontSize: 11, color: C.sub, marginTop: 4, textAlign: 'center' },
   card: { backgroundColor: C.surface, borderRadius: 14, padding: 14, marginBottom: 10 },
-  cardTitle: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text, marginBottom: 10 },
+  cardTitle: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text, marginBottom: 10 },
   stateRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: C.border },
   stateName: { fontSize: 14, color: C.text },
   stateCount: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold', color: C.primary },
-  exportBtn: { backgroundColor: C.primary, borderRadius: 14, padding: 14, alignItems: 'center', marginTop: 4 },
-  exportBtnText: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#fff' },
+  toggleRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  toggleBtn: { flex: 1, height: 40, borderRadius: 10, borderWidth: 1.5, borderColor: C.border, justifyContent: 'center', alignItems: 'center' },
+  toggleActive: { backgroundColor: C.primary, borderColor: C.primary },
+  exportBtn: { backgroundColor: C.primary, borderRadius: 12, padding: 13, alignItems: 'center', marginTop: 4 },
+  exportBtnText: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#fff' },
   // Users
-  searchInput: { height: 50, backgroundColor: C.fill, borderRadius: 14, paddingHorizontal: 14, fontSize: 15, color: C.text, marginBottom: 10 },
+  searchInput: { height: 44, backgroundColor: C.fill, borderRadius: 14, paddingHorizontal: 14, fontSize: 13, color: C.text, marginBottom: 10 },
   countText: { fontSize: 13, color: C.sub, marginBottom: 8 },
   userRow: { flexDirection: 'row' },
   userNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' },
-  userName: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text },
+  userName: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text },
   userMobile: { fontSize: 12, color: C.sub, marginTop: 2 },
   userLocation: { fontSize: 12, color: C.sub, marginTop: 1 },
   userStats: { fontSize: 12, color: C.primary, marginTop: 4, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
@@ -401,9 +465,9 @@ const s = StyleSheet.create({
   unsuspendBtnText: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.primary },
   // Payments
   paymentSummary: { backgroundColor: C.warning, borderRadius: 14, padding: 14, marginBottom: 12, alignItems: 'center' },
-  paymentTotal: { fontSize: 16, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#fff' },
+  paymentTotal: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#fff' },
   payRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  payName: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text },
+  payName: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text },
   payMobile: { fontSize: 13, color: C.sub, marginTop: 2 },
   payUTR: { fontSize: 13, color: C.sub, marginTop: 2 },
   utrValue: { color: C.primary, fontWeight: '700', fontFamily: 'Inter_700Bold' },
@@ -417,14 +481,14 @@ const s = StyleSheet.create({
   // Coupons
   couponStats: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   couponStatCard: { flex: 1, backgroundColor: C.surface, borderRadius: 14, padding: 14, alignItems: 'center' },
-  couponStatNum: { fontSize: 24, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
+  couponStatNum: { fontSize: 14, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
   couponStatLabel: { fontSize: 12, color: C.sub, marginTop: 4 },
   couponActions: { marginBottom: 12 },
   genBtn: { backgroundColor: C.primary, borderRadius: 14, padding: 14, alignItems: 'center' },
-  genBtnText: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#fff' },
+  genBtnText: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#fff' },
   couponRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: C.surface, borderRadius: 10, padding: 12, marginBottom: 6 },
   couponUsed: { opacity: 0.6 },
-  couponCode: { fontSize: 16, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.text, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
+  couponCode: { fontSize: 14, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.text, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
   couponCodeUsed: { color: C.sub },
   couponStatus: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   couponStatusFree: { backgroundColor: C.secondary },
@@ -432,15 +496,15 @@ const s = StyleSheet.create({
   couponStatusText: { fontSize: 11, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text },
   // Suspend modal
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
-  suspendSheet: { backgroundColor: C.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, paddingBottom: Platform.OS === 'ios' ? 36 : 20 },
+  suspendSheet: { backgroundColor: C.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 14, paddingBottom: Platform.OS === 'ios' ? 36 : 20 },
   handle: { width: 40, height: 4, backgroundColor: C.border, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
-  suspendTitle: { fontSize: 20, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.error, marginBottom: 4 },
+  suspendTitle: { fontSize: 14, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.error, marginBottom: 4 },
   suspendUserName: { fontSize: 14, color: C.sub, marginBottom: 16 },
   suspendLabel: { fontSize: 11, fontWeight: '600', fontFamily: 'Inter_600SemiBold', color: C.sub, letterSpacing: 0.8, marginBottom: 8 },
   suspendInput: { backgroundColor: C.fill, borderRadius: 12, padding: 14, fontSize: 14, color: C.text, height: 80, textAlignVertical: 'top', marginBottom: 16 },
   suspendBtns: { flexDirection: 'row', gap: 10 },
-  cancelBtn: { flex: 1, height: 50, backgroundColor: C.fill, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-  cancelBtnText: { fontSize: 15, fontWeight: '600', fontFamily: 'Inter_600SemiBold', color: C.sub },
-  confirmSuspendBtn: { flex: 1, height: 50, backgroundColor: C.error, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-  confirmSuspendText: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#fff' },
+  cancelBtn: { flex: 1, height: 44, backgroundColor: C.fill, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  cancelBtnText: { fontSize: 13, fontWeight: '600', fontFamily: 'Inter_600SemiBold', color: C.sub },
+  confirmSuspendBtn: { flex: 1, height: 44, backgroundColor: C.error, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  confirmSuspendText: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#fff' },
 });

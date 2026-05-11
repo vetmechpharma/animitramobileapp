@@ -349,12 +349,24 @@ export default function DashboardScreen() {
             <Text style={styles.reg}>{user.reg_no}</Text>
           </View>
           <TouchableOpacity testID="logout-btn" style={styles.avatarBtn} onPress={handleLogout}>
-            <Text style={{ fontSize: 24 }}>🐾</Text>
+            <Text style={{ fontSize: 14 }}>🐾</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.locPill}>
           <Text style={styles.locText}>📍 {user.taluk}, {user.district}, {user.state}</Text>
         </View>
+
+        {/* Trial Banner */}
+        {user.is_trial && (user.trial_days_left ?? 0) > 0 && (
+          <TouchableOpacity testID="trial-banner"
+            style={[styles.trialBanner, (user.trial_days_left ?? 0) <= 1 && styles.trialBannerUrgent]}
+            onPress={() => router.push('/activate')}>
+            <Text style={styles.trialBannerText}>
+              ⏳ {user.trial_days_left} day{(user.trial_days_left ?? 0) !== 1 ? 's' : ''} left in free trial
+            </Text>
+            <Text style={styles.trialBannerAction}>Activate Now →</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Stats */}
         <View style={styles.sectionRow}>
@@ -369,7 +381,7 @@ export default function DashboardScreen() {
           <View style={styles.grid} testID="stats-grid">
             {STAT_CARDS.map(card => (
               <View key={card.key} testID={`stat-${card.key}`} style={[styles.card, { backgroundColor: card.color }]}>
-                <View style={styles.emojiWrap}><Text style={{ fontSize: 20 }}>{card.emoji}</Text></View>
+                <View style={styles.emojiWrap}><Text style={{ fontSize: 14 }}>{card.emoji}</Text></View>
                 <Text style={[styles.statNum, { color: card.num }]}>
                   {stats ? fmt((stats as any)[card.key] || 0, card.money || false) : '--'}
                 </Text>
@@ -455,7 +467,7 @@ export default function DashboardScreen() {
                     <Text style={styles.upcomingMeta}>{c.animal_type} • {c.village_name || c.visit_reason}</Text>
                   </View>
                   <TouchableOpacity onPress={() => callPhone(c.mobile)} style={styles.miniCallBtn}>
-                    <Text style={{ fontSize: 18 }}>📞</Text>
+                    <Text style={{ fontSize: 13 }}>📞</Text>
                   </TouchableOpacity>
                 </View>
               ))}
@@ -527,7 +539,7 @@ export default function DashboardScreen() {
                     maxLength={10}
                   />
                   <TouchableOpacity testID="pick-contact-btn" style={styles.contactBtn} onPress={pickFromContacts}>
-                    <Text style={{ fontSize: 18 }}>📱</Text>
+                    <Text style={{ fontSize: 13 }}>📱</Text>
                     <Text style={styles.contactBtnLabel}>Contacts</Text>
                   </TouchableOpacity>
                 </View>
@@ -629,7 +641,7 @@ export default function DashboardScreen() {
                   style={[styles.saveBtn, quickSaving && styles.btnDisabled]}
                   onPress={saveQuickAdd} disabled={quickSaving}>
                   {quickSaving ? <ActivityIndicator color="#fff" /> :
-                    <><Text style={{ fontSize: 16 }}>✅</Text><Text style={styles.saveBtnText}>Save Case</Text></>}
+                    <><Text style={{ fontSize: 14 }}>✅</Text><Text style={styles.saveBtnText}>Save Case</Text></>}
                 </TouchableOpacity>
                 <View style={{ height: 20 }} />
               </ScrollView>
@@ -844,7 +856,7 @@ export default function DashboardScreen() {
                   style={[styles.saveBtn, closeSaving && styles.btnDisabled]}
                   onPress={saveClose} disabled={closeSaving}>
                   {closeSaving ? <ActivityIndicator color="#fff" /> :
-                    <><Text style={{ fontSize: 16 }}>✅</Text><Text style={styles.saveBtnText}>Confirm & Close Case</Text></>}
+                    <><Text style={{ fontSize: 14 }}>✅</Text><Text style={styles.saveBtnText}>Confirm & Close Case</Text></>}
                 </TouchableOpacity>
                 <View style={{ height: 20 }} />
               </ScrollView>
@@ -864,21 +876,25 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
   scroll: { flex: 1 }, scrollContent: { paddingBottom: 16 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg },
-  header: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 24, paddingTop: 20, paddingBottom: 8 },
+  header: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8 },
   greeting: { fontSize: 13, color: C.sub },
-  name: { fontSize: 22, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.text, marginTop: 2 },
+  name: { fontSize: 13, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.text, marginTop: 2 },
   reg: { fontSize: 12, color: C.sub },
-  avatarBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: C.secondary, justifyContent: 'center', alignItems: 'center' },
-  locPill: { marginHorizontal: 24, marginBottom: 16, backgroundColor: C.secondary, borderRadius: 20, paddingVertical: 7, paddingHorizontal: 14, alignSelf: 'flex-start' },
-  locText: { fontSize: 12, color: C.primary, fontWeight: '500', fontFamily: 'Inter_500Medium' },
-  sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, marginBottom: 10 },
-  sectionTitle: { fontSize: 17, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text },
+  avatarBtn: { width: 48, height: 44, borderRadius: 24, backgroundColor: C.secondary, justifyContent: 'center', alignItems: 'center' },
+  locPill: { marginHorizontal: 16, marginBottom: 12, backgroundColor: C.secondary, borderRadius: 20, paddingVertical: 5, paddingHorizontal: 12, alignSelf: 'flex-start' },
+  locText: { fontSize: 11, color: C.primary, fontFamily: 'Inter_500Medium' },
+  trialBanner: { marginHorizontal: 16, marginBottom: 10, backgroundColor: '#FFF8E1', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#FFE082' },
+  trialBannerUrgent: { backgroundColor: '#FFEBEE', borderColor: '#EF9A9A' },
+  trialBannerText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: '#E65100' },
+  trialBannerAction: { fontFamily: 'Inter_700Bold', fontSize: 11, color: C.primary },
+  sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 10 },
+  sectionTitle: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text },
   refreshBtn: { fontSize: 13, color: C.primaryLight, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   loadBox: { paddingVertical: 32, alignItems: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16, gap: 10, marginBottom: 20 },
   card: { width: '47%', borderRadius: 18, padding: 16, minHeight: 110, borderWidth: 1, borderColor: C.border, boxShadow: '0px 2px 10px rgba(46,125,50,0.07)' },
   emojiWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.7)', justifyContent: 'center', alignItems: 'center', marginBottom: 6 },
-  statNum: { fontSize: 24, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', marginBottom: 2 },
+  statNum: { fontSize: 14, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', marginBottom: 2 },
   statLabel: { fontSize: 12, fontWeight: '500', fontFamily: 'Inter_500Medium', color: C.sub, lineHeight: 16 },
   // Cases
   caseList: { paddingHorizontal: 16, gap: 10, marginBottom: 20 },
@@ -886,7 +902,7 @@ const styles = StyleSheet.create({
   forwardBadge: { backgroundColor: '#E3F2FD', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, marginBottom: 8, alignSelf: 'flex-start' },
   forwardText: { fontSize: 11, color: C.blue, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   caseRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
-  caseOwner: { fontSize: 16, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text },
+  caseOwner: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text },
   caseVillage: { fontSize: 12, color: C.sub, marginTop: 1 },
   caseMeta: { fontSize: 12, color: C.sub, marginTop: 2 },
   caseNotes: { fontSize: 12, color: C.sub, marginTop: 3, fontStyle: 'italic' },
@@ -900,7 +916,7 @@ const styles = StyleSheet.create({
   callBtnText: { fontSize: 13, fontWeight: '600', fontFamily: 'Inter_600SemiBold', color: C.primary },
   closeBtn: { backgroundColor: C.primary, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 16, alignItems: 'center' },
   closeBtnText: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#fff' },
-  emptyBox: { paddingHorizontal: 24, paddingVertical: 16 },
+  emptyBox: { paddingHorizontal: 16, paddingVertical: 16 },
   emptyText: { fontSize: 14, color: C.sub, marginBottom: 6 },
   emptyAction: { fontSize: 14, color: C.primary, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   // Upcoming
@@ -913,27 +929,27 @@ const styles = StyleSheet.create({
   miniCallBtn: { padding: 6 },
   // FAB
   fabWrap: { position: 'absolute', bottom: 24, right: 20, boxShadow: '0px 4px 20px rgba(46,125,50,0.28)' },
-  fab: { backgroundColor: C.primary, borderRadius: 28, paddingHorizontal: 20, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  fabIcon: { fontSize: 22, color: '#fff', fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
-  fabLabel: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#fff' },
+  fab: { backgroundColor: C.primary, borderRadius: 28, paddingHorizontal: 14, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  fabIcon: { fontSize: 13, color: '#fff', fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
+  fabLabel: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#fff' },
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: C.surface, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 32 : 16 },
+  sheet: { backgroundColor: C.surface, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 14, paddingBottom: Platform.OS === 'ios' ? 32 : 16 },
   sheetHandle: { width: 40, height: 4, backgroundColor: C.border, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 4 },
   sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 10 },
-  sheetTitle: { fontSize: 19, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.text },
+  sheetTitle: { fontSize: 14, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.text },
   sheetSub: { fontSize: 12, color: C.sub, marginTop: 2 },
   xBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#F0F4F1', justifyContent: 'center', alignItems: 'center' },
   xBtnText: { fontSize: 13, color: C.sub, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   sheetScroll: { maxHeight: 500 },
   inputLabel: { fontSize: 11, fontWeight: '600', fontFamily: 'Inter_600SemiBold', color: C.sub, letterSpacing: 0.8, marginBottom: 6, marginTop: 14 },
-  input: { height: 50, borderRadius: 14, backgroundColor: C.fill, paddingHorizontal: 14, fontSize: 15, color: C.text },
-  dateBtn: { height: 54, borderRadius: 12, borderWidth: 1, borderColor: C.primary, backgroundColor: C.secondary, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dateEmoji: { fontSize: 20 },
-  dateBtnText: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.primary },
+  input: { height: 44, borderRadius: 14, backgroundColor: C.fill, paddingHorizontal: 14, fontSize: 13, color: C.text },
+  dateBtn: { height: 46, borderRadius: 12, borderWidth: 1, borderColor: C.primary, backgroundColor: C.secondary, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dateEmoji: { fontSize: 14 },
+  dateBtnText: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.primary },
   dateSub: { fontSize: 12, color: C.sub, marginLeft: 4 },
   mobileRow: { flexDirection: 'row', gap: 8 },
-  contactBtn: { height: 50, backgroundColor: C.secondary, borderRadius: 12, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border },
+  contactBtn: { height: 44, backgroundColor: C.secondary, borderRadius: 12, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border },
   contactBtnLabel: { fontSize: 10, color: C.primary, fontWeight: '600', fontFamily: 'Inter_600SemiBold', marginTop: 2 },
   villageDropdown: { backgroundColor: C.surface, borderRadius: 10, borderWidth: 1, borderColor: C.border, marginTop: -6, marginBottom: 4 },
   villageItem: { paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: '#F0F4F1' },
@@ -944,9 +960,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8F4FD', borderRadius: 12, padding: 12, marginBottom: 12,
     borderWidth: 1.5, borderColor: '#90CAF9',
   },
-  clipboardEmoji: { fontSize: 20 },
+  clipboardEmoji: { fontSize: 14 },
   clipboardText: { fontSize: 12, color: '#1565C0', fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
-  clipboardNumber: { fontSize: 16, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: '#0D47A1' },
+  clipboardNumber: { fontSize: 14, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: '#0D47A1' },
   clipboardUse: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#1565C0', paddingHorizontal: 4 },
   farmerDropdown: {
     backgroundColor: C.surface, borderRadius: 12, borderWidth: 1, borderColor: C.border,
@@ -958,18 +974,18 @@ const styles = StyleSheet.create({
   },
   farmerSugName: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text },
   farmerSugMeta: { fontSize: 12, color: C.sub, marginTop: 2 },
-  farmerSugArrow: { fontSize: 16, color: C.primary },
+  farmerSugArrow: { fontSize: 14, color: C.primary },
   autoFilledBanner: {
     backgroundColor: '#E8F5E9', borderRadius: 10, padding: 10, marginBottom: 8,
     borderLeftWidth: 3, borderLeftColor: C.primary,
   },
   autoFilledText: { fontSize: 13, color: C.primary, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   rowInputs: { flexDirection: 'row' },
-  pickerBtn: { height: 50, borderRadius: 14, backgroundColor: C.fill, paddingHorizontal: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  pickerBtn: { height: 44, borderRadius: 14, backgroundColor: C.fill, paddingHorizontal: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   pickerText: { fontSize: 14, color: C.text, flex: 1 },
-  saveBtn: { height: 54, backgroundColor: C.primary, borderRadius: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 18 },
+  saveBtn: { height: 46, backgroundColor: C.primary, borderRadius: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 18 },
   btnDisabled: { opacity: 0.6 },
-  saveBtnText: { fontSize: 16, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#fff' },
+  saveBtnText: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#fff' },
   toggleRow: { flexDirection: 'row', gap: 10 },
   toggleBtn: { flex: 1, height: 46, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, justifyContent: 'center', alignItems: 'center' },
   toggleBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
@@ -985,7 +1001,7 @@ const styles = StyleSheet.create({
   // Pay options
   payOption: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.fill, borderRadius: 14, padding: 12, borderWidth: 1.5, borderColor: 'transparent' },
   payOptionActive: { borderColor: C.primary, backgroundColor: C.secondary },
-  payOptionEmoji: { fontSize: 20 },
+  payOptionEmoji: { fontSize: 14 },
   payOptionLabel: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text },
   payOptionDesc: { fontSize: 12, color: C.sub, marginTop: 2 },
   radioOuter: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: C.border, justifyContent: 'center', alignItems: 'center' },
@@ -994,8 +1010,8 @@ const styles = StyleSheet.create({
   outstandingPreview: { backgroundColor: '#FFF3E0', borderRadius: 10, padding: 10, marginTop: 8, borderLeftWidth: 3, borderLeftColor: C.warning },
   outstandingPreviewText: { fontSize: 13, color: C.warning, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', paddingHorizontal: 16 },
-  chipSheet: { backgroundColor: C.surface, borderRadius: 20, padding: 20 },
-  chipTitle: { fontSize: 17, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text, marginBottom: 14, textAlign: 'center' },
+  chipSheet: { backgroundColor: C.surface, borderRadius: 20, padding: 14 },
+  chipTitle: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text, marginBottom: 14, textAlign: 'center' },
   chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 50, backgroundColor: C.fill },
   chipSel: { backgroundColor: C.primary, borderColor: C.primary },
@@ -1003,7 +1019,7 @@ const styles = StyleSheet.create({
   // Contacts
   contactItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F0F4F1', gap: 12 },
   contactAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: C.secondary, justifyContent: 'center', alignItems: 'center' },
-  contactAvatarText: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.primary },
+  contactAvatarText: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.primary },
   contactName: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold', color: C.text },
   contactPhone: { fontSize: 12, color: C.sub },
 });

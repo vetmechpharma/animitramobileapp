@@ -46,7 +46,15 @@ export default function LoginScreen() {
       await login(mobile.trim(), password);
       router.replace('/(tabs)/dashboard');
     } catch (e: any) {
-      Alert.alert('Login Failed', e.message || 'Invalid credentials');
+      if (e.message === 'FREE_TRIAL_EXPIRED') {
+        Alert.alert(
+          '⏰ Trial Expired',
+          'Your 3-day free trial has ended. Please activate your account with a coupon code.',
+          [{ text: 'Activate Now', onPress: () => router.push({ pathname: '/activate', params: { mobile: mobile.trim(), password } }) }]
+        );
+      } else {
+        Alert.alert('Login Failed', e.message || 'Invalid credentials');
+      }
     } finally { setLoading(false); }
   };
 
@@ -117,7 +125,7 @@ export default function LoginScreen() {
                 onBlur={() => setPassFocused(false)}
               />
               <TouchableOpacity testID="toggle-password-btn" onPress={() => setShowPass(!showPass)} style={s.eyeBtn}>
-                <Text style={{ fontSize: 18 }}>{showPass ? '🙈' : '👁️'}</Text>
+                <Text style={{ fontSize: 13 }}>{showPass ? '🙈' : '👁️'}</Text>
               </TouchableOpacity>
             </View>
 
@@ -180,10 +188,10 @@ export default function LoginScreen() {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg },
-  scroll: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40 },
+  scroll: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 40 },
 
   // Hero
-  hero: { alignItems: 'center', paddingTop: 52, paddingBottom: 36 },
+  hero: { alignItems: 'center', paddingTop: 32, paddingBottom: 36 },
   logoOuter: {
     width: 108, height: 108, borderRadius: 54,
     backgroundColor: C.fill, borderWidth: 3, borderColor: C.border,
@@ -224,14 +232,14 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: C.fill, borderRadius: R.md,
     borderWidth: 1.5, borderColor: C.borderLight,
-    paddingHorizontal: 14, height: 56, gap: 10,
+    paddingHorizontal: 14, height: 44, gap: 10,
   },
   inputWrapFocused: { borderColor: C.primaryLight, backgroundColor: '#E4F0E6' },
-  inputIcon: { fontSize: 18 },
+  inputIcon: { fontSize: 13 },
   input: {
     flex: 1,
     fontFamily: F.medium,
-    fontSize: 16,
+    fontSize: 14,
     color: C.text,
     letterSpacing: 0.1,
   },
@@ -239,28 +247,28 @@ const s = StyleSheet.create({
 
   // Buttons
   primaryBtn: {
-    height: 56, backgroundColor: C.primary, borderRadius: R.lg,
+    height: 44, backgroundColor: C.primary, borderRadius: R.lg,
     justifyContent: 'center', alignItems: 'center', marginTop: 22,
     boxShadow: '0px 4px 20px rgba(46,125,50,0.34)',
   },
-  primaryBtnText: { fontFamily: F.bold, fontSize: 16, color: '#fff', letterSpacing: 0.3 },
+  primaryBtnText: { fontFamily: F.bold, fontSize: 14, color: '#fff', letterSpacing: 0.3 },
   btnDisabled: { opacity: 0.65 },
   divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 20, gap: 12 },
   dividerLine: { flex: 1, height: 1, backgroundColor: C.border },
   dividerText: { fontFamily: F.medium, fontSize: 13, color: C.textMuted },
   demoBtn: {
-    height: 54, borderRadius: R.lg,
+    height: 46, borderRadius: R.lg,
     backgroundColor: C.fill,
     borderWidth: 2, borderColor: C.primaryLight,
     justifyContent: 'center', alignItems: 'center',
   },
   demoBtnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  demoBtnEmoji: { fontSize: 18 },
-  demoBtnText: { fontFamily: F.bold, fontSize: 15, color: C.primary },
+  demoBtnEmoji: { fontSize: 13 },
+  demoBtnText: { fontFamily: F.bold, fontSize: 13, color: C.primary },
   demoHint: { fontFamily: F.regular, fontSize: 12, color: C.textMuted, textAlign: 'center', marginTop: 10, lineHeight: 18 },
 
   // Footer
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 28 },
-  footerText: { fontFamily: F.regular, fontSize: 15, color: C.textSub },
-  footerLink: { fontFamily: F.bold, fontSize: 15, color: C.primary },
+  footerText: { fontFamily: F.regular, fontSize: 13, color: C.textSub },
+  footerLink: { fontFamily: F.bold, fontSize: 13, color: C.primary },
 });
