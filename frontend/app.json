@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "animitra",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.vetmechpharma.animitra",
@@ -22,7 +22,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#2E7D32"
       },
-      "edgeToEdgeEnabled": true,
+      "edgeToEdgeEnabled": false,
       "permissions": [
         "android.permission.READ_CONTACTS",
         "android.permission.INTERNET"
@@ -44,7 +44,18 @@
           "backgroundColor": "#F4F9F4"
         }
       ],
-      "expo-font",
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./node_modules/@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf",
+            "./node_modules/@expo-google-fonts/inter/500Medium/Inter_500Medium.ttf",
+            "./node_modules/@expo-google-fonts/inter/600SemiBold/Inter_600SemiBold.ttf",
+            "./node_modules/@expo-google-fonts/inter/700Bold/Inter_700Bold.ttf",
+            "./node_modules/@expo-google-fonts/inter/800ExtraBold/Inter_800ExtraBold.ttf"
+          ]
+        }
+      ],
       "expo-web-browser"
     ],
     "experiments": {
