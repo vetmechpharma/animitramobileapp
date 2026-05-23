@@ -890,7 +890,68 @@ async def admin_export_users(user=Depends(get_admin_user)):
     return PlainTextResponse("\n".join(lines), media_type="text/csv")
 
 
-@api_router.get("/admin/analytics/top-performers")
+# ─────────────────────────── banners ─────────────────────────────────────────
+
+class BannerRequest(BaseModel):
+    title: str
+    image_url: str
+    link_url: str
+    is_active: bool = True
+
+
+@api_router.post("/admin/banners")
+async def create_banner(data: BannerRequest, user=Depends(get_admin_user)):
+    # Deactivate others if setting new one active
+    if data.is_active:
+        await db.banners.update_many({}, {"$set": {"is_active": False}})
+    result = await db.banners.insert_one({
+        "title": data.title, "image_url": data.image_url,
+        "link_url": data.link_url, "is_active": data.is_active,
+        "created_by": user["id"], "created_at": datetime.now(timezone.utc),
+    })
+    return {"success": True, "id": str(result.inserted_id)}
+
+
+@api_router.get("/admin/banners")
+async def list_banners(user=Depends(get_admin_user)):
+    banners = []
+    async for b in db.banners.find({}).sort("created_at", -1):
+        banners.append({
+            "id": str(b["_id"]), "title": b["title"],
+            "image_url": b["image_url"], "link_url": b["link_url"],
+            "is_active": b.get("is_active", False),
+            "created_at": b["created_at"].isoformat(),
+        })
+    return {"banners": banners}
+
+
+@api_router.put("/admin/banners/{bid}/toggle")
+async def toggle_banner(bid: str, user=Depends(get_admin_user)):
+    banner = await db.banners.find_one({"_id": ObjectId(bid)})
+    if not banner:
+        raise HTTPException(404, "Banner not found")
+    new_state = not banner.get("is_active", False)
+    if new_state:
+        await db.banners.update_many({}, {"$set": {"is_active": False}})
+    await db.banners.update_one({"_id": ObjectId(bid)}, {"$set": {"is_active": new_state}})
+    return {"success": True, "is_active": new_state}
+
+
+@api_router.delete("/admin/banners/{bid}")
+async def delete_banner(bid: str, user=Depends(get_admin_user)):
+    await db.banners.delete_one({"_id": ObjectId(bid)})
+    return {"success": True}
+
+
+@api_router.get("/banners/active")
+async def active_banner(user=Depends(get_current_user)):
+    banner = await db.banners.find_one({"is_active": True})
+    if not banner:
+        return {"banner": None}
+    return {"banner": {
+        "id": str(banner["_id"]), "title": banner["title"],
+        "image_url": banner["image_url"], "link_url": banner["link_url"],
+    }}
 async def top_performers(user=Depends(get_admin_user)):
     vets = []
     async for u in db.users.find({"role": "vet"}).sort("created_at", -1):

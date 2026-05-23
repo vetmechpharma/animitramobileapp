@@ -10,6 +10,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import * as Contacts from 'expo-contacts';
 import * as Clipboard from 'expo-clipboard';
 import DatePickerModal from '../../components/DatePicker';
+import AdBanner from '../../components/AdBanner';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 const ANIMAL_TYPES = ['Dog', 'Cat', 'Cow', 'Buffalo', 'Goat', 'Sheep', 'Poultry', 'Horse', 'Bird', 'Rabbit', 'Pig', 'Other'];
@@ -893,6 +894,14 @@ export default function DashboardScreen() {
       {/* Follow-up Date Picker */}
       <DatePickerModal visible={showFollowUpPicker} date={followUpDate}
         onSelect={d => setFollowUpDate(d)} onClose={() => setShowFollowUpPicker(false)} />
+
+      {/* Ad Banner — shows once per day */}
+      {token && (
+        <AdBanner
+          token={token}
+          backendUrl={BACKEND_URL}
+        />
+      )}
     </SafeAreaView>
   );
 }

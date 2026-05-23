@@ -18,6 +18,7 @@ const ADMIN_TABS = [
   { key: 'stats', emoji: '📊', label: 'Overview' },
   { key: 'users', emoji: '👥', label: 'Users' },
   { key: 'analytics', emoji: '🏆', label: 'Top' },
+  { key: 'banners', emoji: '🖼️', label: 'Banners' },
   { key: 'payments', emoji: '💰', label: 'Payments' },
   { key: 'coupons', emoji: '🎟️', label: 'Coupons' },
 ];
@@ -37,6 +38,11 @@ export default function AdminScreen() {
   // Analytics
   const [performers, setPerformers] = useState<{ by_cases: any[]; by_earnings: any[] }>({ by_cases: [], by_earnings: [] });
   const [perfView, setPerfView] = useState<'cases' | 'earnings'>('cases');
+  // Banners
+  const [banners, setBanners] = useState<any[]>([]);
+  const [showAddBanner, setShowAddBanner] = useState(false);
+  const [newBanner, setNewBanner] = useState({ title: '', image_url: '', link_url: '' });
+  const [savingBanner, setSavingBanner] = useState(false);
   // Payments
   const [payments, setPayments] = useState<any[]>([]);
   // Coupons
@@ -63,6 +69,10 @@ export default function AdminScreen() {
         const r = await fetch(`${BACKEND_URL}/api/admin/users`, { headers: h });
         const d = await r.json();
         setUsers(d.users || []);
+      } else if (tab === 'banners') {
+        const r = await fetch(`${BACKEND_URL}/api/admin/banners`, { headers: h });
+        const d = await r.json();
+        setBanners(d.banners || []);
       } else if (tab === 'analytics') {
         const r = await fetch(`${BACKEND_URL}/api/admin/analytics/top-performers`, { headers: h });
         const d = await r.json();
@@ -253,7 +263,117 @@ export default function AdminScreen() {
               </>
             )}
 
-            {/* ── ANALYTICS / TOP PERFORMERS ── */}
+            {/* ── BANNERS ── */}
+            {tab === 'banners' && (
+              <>
+                <TouchableOpacity testID="add-banner-btn" style={s.exportBtn}
+                  onPress={() => { setNewBanner({ title: '', image_url: '', link_url: '' }); setShowAddBanner(true); }}>
+                  <Text style={s.exportBtnText}>＋ Add New Banner</Text>
+                </TouchableOpacity>
+
+                {banners.length === 0 ? (
+                  <View style={s.empty}>
+                    <Text style={s.emptyEmoji}>🖼️</Text>
+                    <Text style={s.emptyText}>No banners yet. Add one above.</Text>
+                  </View>
+                ) : (
+                  banners.map(b => (
+                    <View key={b.id} testID={`banner-${b.id}`} style={[s.card, { marginBottom: 10 }]}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 14, color: C.text }}>{b.title || 'No Title'}</Text>
+                          <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 11, color: C.sub, marginTop: 2 }} numberOfLines={1}>🔗 {b.link_url}</Text>
+                          <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 11, color: C.sub, marginTop: 1 }} numberOfLines={1}>🖼 {b.image_url}</Text>
+                        </View>
+                        <View style={[{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }, b.is_active ? { backgroundColor: '#E8F5E9' } : { backgroundColor: '#F5F5F5' }]}>
+                          <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 11, color: b.is_active ? C.primary : C.sub }}>
+                            {b.is_active ? '● LIVE' : '○ OFF'}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                        <TouchableOpacity testID={`toggle-banner-${b.id}`} style={[s.unsuspendBtn, { flex: 1 }]}
+                          onPress={async () => {
+                            await fetch(`${BACKEND_URL}/api/admin/banners/${b.id}/toggle`, { method: 'PUT', headers: h });
+                            fetchData();
+                          }}>
+                          <Text style={s.unsuspendBtnText}>{b.is_active ? 'Deactivate' : '✓ Activate'}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity testID={`delete-banner-${b.id}`} style={[s.suspendBtn, { flex: 1 }]}
+                          onPress={() => {
+                            Alert.alert('Delete Banner', 'Are you sure?', [
+                              { text: 'Cancel', style: 'cancel' },
+                              { text: 'Delete', style: 'destructive', onPress: async () => {
+                                await fetch(`${BACKEND_URL}/api/admin/banners/${b.id}`, { method: 'DELETE', headers: h });
+                                fetchData();
+                              }},
+                            ]);
+                          }}>
+                          <Text style={s.suspendBtnText}>🗑 Delete</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))
+                )}
+
+                {/* Add Banner Modal */}
+                <Modal visible={showAddBanner} transparent animationType="slide" onRequestClose={() => setShowAddBanner(false)}>
+                  <View style={s.overlay}>
+                    <View style={s.suspendSheet}>
+                      <View style={s.handle} />
+                      <Text style={[s.suspendTitle, { color: C.primary }]}>🖼️ Add Advertisement Banner</Text>
+                      <Text style={s.suspendLabel}>BANNER TITLE <Text style={{ color: C.sub, fontWeight: '400' }}>Optional</Text></Text>
+                      <TextInput testID="banner-title-input" style={s.suspendInput}
+                        placeholder="e.g. Special Offer — 20% off medicines"
+                        placeholderTextColor="#9EB09F" value={newBanner.title}
+                        onChangeText={v => setNewBanner(n => ({ ...n, title: v }))} />
+                      <Text style={s.suspendLabel}>IMAGE URL *</Text>
+                      <TextInput testID="banner-img-input" style={s.suspendInput}
+                        placeholder="https://your-site.com/banner.jpg"
+                        placeholderTextColor="#9EB09F" value={newBanner.image_url}
+                        onChangeText={v => setNewBanner(n => ({ ...n, image_url: v }))}
+                        autoCapitalize="none" keyboardType="url" />
+                      <Text style={s.suspendLabel}>LINK URL *</Text>
+                      <TextInput testID="banner-link-input" style={s.suspendInput}
+                        placeholder="https://wa.me/919486544884 or any link"
+                        placeholderTextColor="#9EB09F" value={newBanner.link_url}
+                        onChangeText={v => setNewBanner(n => ({ ...n, link_url: v }))}
+                        autoCapitalize="none" keyboardType="url" />
+                      <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 11, color: C.sub, marginBottom: 12 }}>
+                        💡 Tip: Use WhatsApp link (wa.me/...), website URL, or any link.{'\n'}Banner shows once per day to each user.
+                      </Text>
+                      <View style={s.suspendBtns}>
+                        <TouchableOpacity style={s.cancelBtn} onPress={() => setShowAddBanner(false)}>
+                          <Text style={s.cancelBtnText}>Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity testID="save-banner-btn" style={[s.confirmSuspendBtn, { backgroundColor: C.primary }, savingBanner && { opacity: 0.6 }]}
+                          disabled={savingBanner}
+                          onPress={async () => {
+                            if (!newBanner.image_url || !newBanner.link_url) {
+                              Alert.alert('Required', 'Image URL and Link URL are required'); return;
+                            }
+                            setSavingBanner(true);
+                            try {
+                              const r = await fetch(`${BACKEND_URL}/api/admin/banners`, {
+                                method: 'POST',
+                                headers: { ...h, 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ ...newBanner, is_active: true }),
+                              });
+                              if (!r.ok) throw new Error('Failed');
+                              setShowAddBanner(false);
+                              fetchData();
+                              Alert.alert('✅ Banner Added!', 'It is now live and will show to users once per day.');
+                            } catch (e: any) { Alert.alert('Error', e.message); }
+                            finally { setSavingBanner(false); }
+                          }}>
+                          {savingBanner ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.confirmSuspendText}>Save & Activate</Text>}
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                </Modal>
+              </>
+            )}
             {tab === 'analytics' && (
               <>
                 <View style={s.toggleRow}>
