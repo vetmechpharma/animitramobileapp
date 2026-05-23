@@ -317,7 +317,7 @@ async def register(data: RegisterRequest):
             "reg_no": data.reg_no, "state": data.state,
             "district": data.district, "taluk": data.taluk,
             "is_activated": False, "role": "vet",
-            "is_trial": True, "trial_days_left": 3,
+            "is_trial": True, "trial_days_left": 7,
         }
     }
 
@@ -350,7 +350,7 @@ async def login(data: LoginRequest):
     uid = str(user["_id"])
     role = user.get("role", "vet")
 
-    # Activated users — full access
+    # Activated users — full access, no trial
     if user.get("is_activated"):
         return {"success": True, "token": create_token(uid, data.mobile, role),
                 "user": {
@@ -358,27 +358,30 @@ async def login(data: LoginRequest):
                     "reg_no": user.get("reg_no", ""), "state": user.get("state", ""),
                     "district": user.get("district", ""), "taluk": user.get("taluk", ""),
                     "is_activated": True, "role": role,
-                    "is_trial": False, "trial_days_left": 0,
+                    "is_trial": False, "is_trial_expired": False, "trial_days_left": 0,
                 }}
 
-    # Trial logic — check 3-day trial
-    trial_start = user.get("trial_start_date") or user.get("created_at", datetime.now(timezone.utc))
-    if trial_start.tzinfo is None:
+    # Trial logic — 7-day free trial
+    trial_start = user.get("trial_start_date") or user.get("created_at")
+    if trial_start is None:
+        trial_start = datetime.now(timezone.utc)
+    if hasattr(trial_start, 'tzinfo') and trial_start.tzinfo is None:
         trial_start = trial_start.replace(tzinfo=timezone.utc)
     days_elapsed = (datetime.now(timezone.utc) - trial_start).days
-    trial_days_left = max(0, 3 - days_elapsed)
+    trial_days_left = max(0, 7 - days_elapsed)
+    is_trial_expired = days_elapsed >= 7
 
-    if days_elapsed >= 3:
-        raise HTTPException(403, f"FREE_TRIAL_EXPIRED")
-
-    # Within trial — allow login
+    # ALWAYS allow login during AND after trial — just mark status
+    # Expired trial users can still view data, just can't add new entries
     return {"success": True, "token": create_token(uid, data.mobile, role),
             "user": {
                 "id": uid, "name": user["name"], "mobile": user["mobile"],
                 "reg_no": user.get("reg_no", ""), "state": user.get("state", ""),
                 "district": user.get("district", ""), "taluk": user.get("taluk", ""),
                 "is_activated": False, "role": role,
-                "is_trial": True, "trial_days_left": trial_days_left,
+                "is_trial": not is_trial_expired,
+                "is_trial_expired": is_trial_expired,
+                "trial_days_left": trial_days_left,
             }}
 
 @api_router.get("/auth/me")

@@ -46,15 +46,7 @@ export default function LoginScreen() {
       await login(mobile.trim(), password);
       router.replace('/(tabs)/dashboard');
     } catch (e: any) {
-      if (e.message === 'FREE_TRIAL_EXPIRED') {
-        Alert.alert(
-          '⏰ Trial Expired',
-          'Your 3-day free trial has ended. Please activate your account with a coupon code.',
-          [{ text: 'Activate Now', onPress: () => router.push({ pathname: '/activate', params: { mobile: mobile.trim(), password } }) }]
-        );
-      } else {
-        Alert.alert('Login Failed', e.message || 'Invalid credentials');
-      }
+      Alert.alert('Login Failed', e.message || 'Invalid credentials');
     } finally { setLoading(false); }
   };
 

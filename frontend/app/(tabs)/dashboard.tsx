@@ -138,6 +138,18 @@ export default function DashboardScreen() {
   const onRefresh = useCallback(() => { setRefreshing(true); fetchAll(); }, [token]);
 
   const openQuickAdd = async () => {
+    // Block new entries if trial expired
+    if (user?.is_trial_expired) {
+      Alert.alert(
+        '⛔ Trial Expired',
+        'Your 7-day free trial has ended. Activate your account to continue adding cases.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Activate Now', onPress: () => router.push('/activate') },
+        ]
+      );
+      return;
+    }
     setQuickForm({ owner_name: '', mobile: '', village_name: '', animal_type: '', visit_reason: '', notes: '' });
     setVisitDate(new Date());
     setClipboardBanner('');
@@ -356,15 +368,28 @@ export default function DashboardScreen() {
           <Text style={styles.locText}>📍 {user.taluk}, {user.district}, {user.state}</Text>
         </View>
 
-        {/* Trial Banner */}
-        {user.is_trial && (user.trial_days_left ?? 0) > 0 && (
+        {/* Trial Banner — Active */}
+        {user.is_trial && !user.is_trial_expired && (user.trial_days_left ?? 0) > 0 && (
           <TouchableOpacity testID="trial-banner"
-            style={[styles.trialBanner, (user.trial_days_left ?? 0) <= 1 && styles.trialBannerUrgent]}
+            style={[styles.trialBanner, (user.trial_days_left ?? 0) <= 2 && styles.trialBannerUrgent]}
             onPress={() => router.push('/activate')}>
             <Text style={styles.trialBannerText}>
               ⏳ {user.trial_days_left} day{(user.trial_days_left ?? 0) !== 1 ? 's' : ''} left in free trial
             </Text>
             <Text style={styles.trialBannerAction}>Activate Now →</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Trial Expired Banner */}
+        {user.is_trial_expired && (
+          <TouchableOpacity testID="trial-expired-banner"
+            style={styles.trialExpiredBanner}
+            onPress={() => router.push('/activate')}>
+            <View>
+              <Text style={styles.trialExpiredTitle}>⛔ Free Trial Ended</Text>
+              <Text style={styles.trialExpiredSub}>Activate your account to add new cases & payments</Text>
+            </View>
+            <Text style={styles.trialExpiredAction}>Pay ₹200 →</Text>
           </TouchableOpacity>
         )}
 
@@ -887,6 +912,10 @@ const styles = StyleSheet.create({
   trialBannerUrgent: { backgroundColor: '#FFEBEE', borderColor: '#EF9A9A' },
   trialBannerText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: '#E65100' },
   trialBannerAction: { fontFamily: 'Inter_700Bold', fontSize: 11, color: C.primary },
+  trialExpiredBanner: { marginHorizontal: 16, marginBottom: 10, backgroundColor: '#FFEBEE', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1.5, borderColor: '#EF9A9A' },
+  trialExpiredTitle: { fontFamily: 'Inter_700Bold', fontSize: 13, color: C.error },
+  trialExpiredSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: '#5A7060', marginTop: 2 },
+  trialExpiredAction: { fontFamily: 'Inter_800ExtraBold', fontSize: 13, color: C.primary },
   sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 10 },
   sectionTitle: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text },
   refreshBtn: { fontSize: 13, color: C.primaryLight, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },

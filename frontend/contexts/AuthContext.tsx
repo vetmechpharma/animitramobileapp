@@ -16,6 +16,7 @@ interface User {
   is_activated: boolean;
   role: string;
   is_trial?: boolean;
+  is_trial_expired?: boolean;
   trial_days_left?: number;
 }
 
