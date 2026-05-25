@@ -248,9 +248,7 @@ export default function AdminScreen() {
                           <TouchableOpacity testID={`activate-user-${u.id}`}
                             style={[s.unsuspendBtn, { backgroundColor: '#E3F2FD', flex: 1, marginRight: 8 }]}
                             onPress={() => {
-                              Alert.alert(
-                                'Activate Account',
-                                `Activate ${u.name} (${u.mobile})?\n\nThis will auto-assign an unused coupon code.`,
+                              Alert.alert('Activate Account', `Activate ${u.name} (${u.mobile})?\n\nThis will auto-assign an unused coupon code.`,
                                 [
                                   { text: 'Cancel', style: 'cancel' },
                                   { text: 'Activate', onPress: async () => {
@@ -259,7 +257,7 @@ export default function AdminScreen() {
                                       const d = await r.json();
                                       if (!r.ok) throw new Error(d.detail || 'Failed');
                                       fetchData();
-                                      Alert.alert('✅ Activated!', `${u.name} activated.\nCoupon used: ${d.coupon_used}`);
+                                      Alert.alert('✅ Activated!', `${u.name} activated.\nCoupon: ${d.coupon_used}`);
                                     } catch (e: any) { Alert.alert('Error', e.message); }
                                   }},
                                 ]
@@ -268,6 +266,25 @@ export default function AdminScreen() {
                             <Text style={[s.unsuspendBtnText, { color: '#1565C0' }]}>✓ Activate</Text>
                           </TouchableOpacity>
                         )}
+                        <TouchableOpacity testID={`reset-pwd-${u.id}`}
+                          style={[s.suspendBtn, { backgroundColor: '#FFF3E0', flex: 1, marginRight: u.is_suspended ? 0 : 8 }]}
+                          onPress={() => {
+                            Alert.alert('Reset Password', `Reset password for ${u.name}?\n\nA new random password will be generated.`,
+                              [
+                                { text: 'Cancel', style: 'cancel' },
+                                { text: 'Reset', onPress: async () => {
+                                  try {
+                                    const r = await fetch(`${BACKEND_URL}/api/admin/users/${u.id}/reset-password`, { method: 'POST', headers: h });
+                                    const d = await r.json();
+                                    if (!r.ok) throw new Error(d.detail || 'Failed');
+                                    Alert.alert('🔑 New Password', `Name: ${u.name}\nMobile: ${u.mobile}\nNew Password: ${d.new_password}\n\nShare this with the user.`, [{ text: 'OK' }]);
+                                  } catch (e: any) { Alert.alert('Error', e.message); }
+                                }},
+                              ]
+                            );
+                          }}>
+                          <Text style={[s.suspendBtnText, { color: '#E65100' }]}>🔑 Reset PWD</Text>
+                        </TouchableOpacity>
                         {u.is_suspended ? (
                           <TouchableOpacity testID={`unsuspend-${u.id}`}
                             style={s.unsuspendBtn}

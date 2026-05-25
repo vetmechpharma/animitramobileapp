@@ -864,7 +864,28 @@ async def admin_users(user=Depends(get_admin_user)):
     return {"total": len(users), "users": users}
 
 
-@api_router.post("/admin/users/{uid}/activate")
+@api_router.post("/admin/users/{uid}/reset-password")
+async def admin_reset_password(uid: str, user=Depends(get_admin_user)):
+    """Generate new random password for a user and return it to admin."""
+    import string
+    chars = string.ascii_letters + string.digits + "!@#$"
+    new_pwd = ''.join(secrets.choice(chars) for _ in range(10))
+    await db.users.update_one({"_id": ObjectId(uid)}, {"$set": {"password_hash": hash_password(new_pwd)}})
+    return {"success": True, "new_password": new_pwd}
+
+
+@api_router.post("/users/change-password")
+async def change_my_password(data: dict, user=Depends(get_current_user)):
+    """User changes their own password."""
+    old_pwd = data.get("old_password", "")
+    new_pwd = data.get("new_password", "")
+    if len(new_pwd) < 6:
+        raise HTTPException(400, "Password must be at least 6 characters")
+    db_user = await db.users.find_one({"_id": ObjectId(user["id"])})
+    if not db_user or not verify_password(old_pwd, db_user["password_hash"]):
+        raise HTTPException(400, "Current password is incorrect")
+    await db.users.update_one({"_id": ObjectId(user["id"])}, {"$set": {"password_hash": hash_password(new_pwd)}})
+    return {"success": True}
 async def admin_activate_user(uid: str, user=Depends(get_admin_user)):
     """Admin directly activates a user - auto-picks an unused coupon."""
     target = await db.users.find_one({"_id": ObjectId(uid)})

@@ -19,11 +19,6 @@
         "env": {
           "EXPO_PUBLIC_BACKEND_URL": "https://app.vetmechpharma.in"
         }
-      },
-      "ios": {
-        "env": {
-          "EXPO_PUBLIC_BACKEND_URL": "https://app.vetmechpharma.in"
-        }
       }
     }
   },
