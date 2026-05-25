@@ -79,7 +79,7 @@ export default function DashboardScreen() {
 
   // Quick Add
   const [showQuickAdd, setShowQuickAdd] = useState(false);
-  const [quickForm, setQuickForm] = useState({ owner_name: '', mobile: '', village_name: '', animal_type: '', visit_reason: '', notes: '' });
+  const [quickForm, setQuickForm] = useState({ owner_name: '', mobile: '', village_name: '', animal_type: '', visit_reason: '', notes: '', opening_balance: '' });
   const [visitDate, setVisitDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [allVillages, setAllVillages] = useState<string[]>([]);
@@ -151,7 +151,7 @@ export default function DashboardScreen() {
       );
       return;
     }
-    setQuickForm({ owner_name: '', mobile: '', village_name: '', animal_type: '', visit_reason: '', notes: '' });
+    setQuickForm({ owner_name: '', mobile: '', village_name: '', animal_type: '', visit_reason: '', notes: '', opening_balance: '' });
     setVisitDate(new Date());
     setClipboardBanner('');
     setAutoFilledBanner('');
@@ -257,7 +257,7 @@ export default function DashboardScreen() {
       const res = await fetch(`${BACKEND_URL}/api/cases/quick-add`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ...quickForm, visit_date: visitDateStr }),
+        body: JSON.stringify({ ...quickForm, visit_date: visitDateStr, opening_balance: parseFloat(quickForm.opening_balance) || 0 }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.detail || 'Failed');
@@ -649,6 +649,25 @@ export default function DashboardScreen() {
                     </TouchableOpacity>
                   </View>
                 </View>
+
+                {/* Opening Balance */}
+                <Text style={styles.inputLabel}>OPENING BALANCE (₹) <Text style={styles.optionalTag}>Optional</Text></Text>
+                <TextInput
+                  testID="quick-opening-balance-input"
+                  style={styles.input}
+                  placeholder="Previous pending amount from this client"
+                  placeholderTextColor="#9EB09F"
+                  keyboardType="numeric"
+                  value={quickForm.opening_balance}
+                  onChangeText={v => setQuickForm(f => ({ ...f, opening_balance: v }))}
+                />
+                {!!quickForm.opening_balance && parseFloat(quickForm.opening_balance) > 0 && (
+                  <View style={[styles.infoBox, { backgroundColor: '#FFF8E1' }]}>
+                    <Text style={[styles.infoText, { color: C.warning }]}>
+                      💡 ₹{parseFloat(quickForm.opening_balance).toLocaleString('en-IN')} will be added to Outstanding Ledger
+                    </Text>
+                  </View>
+                )}
 
                 {/* Notes */}
                 <Text style={styles.inputLabel}>NOTES <Text style={{ color: '#9EB09F', fontSize: 10 }}>Optional</Text></Text>

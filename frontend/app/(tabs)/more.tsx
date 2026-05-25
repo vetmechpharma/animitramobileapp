@@ -58,6 +58,21 @@ export default function MoreScreen() {
     ]);
   };
 
+  const handleExportClients = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/export/my-clients`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const csv = await res.text();
+      await Share.share({
+        message: csv,
+        title: `${user?.name} - Client Data Export`,
+      });
+    } catch (e) {
+      Alert.alert('Error', 'Could not export data. Please try again.');
+    }
+  };
+
   const handleDeleteAccount = () => {
     Alert.alert(
       '⚠️ Delete Account',
@@ -88,7 +103,8 @@ export default function MoreScreen() {
       title: 'TOOLS',
       items: [
         { testID: 'more-reports', emoji: '📈', label: 'Reports & Analytics', sub: 'Animal-wise, visit-wise, forwards', route: '/(tabs)/reports' },
-        { testID: 'more-about', emoji: 'ℹ️', label: 'About Animitra', sub: 'Features, T&C, support contact', route: '/(tabs)/about' },
+        { testID: 'more-export', emoji: '📊', label: 'Export My Clients', sub: 'Download client data as CSV, share WhatsApp', onPress: handleExportClients },
+        { testID: 'more-about', emoji: 'ℹ️', label: 'About ANIMitraVET', sub: 'Features, T&C, support contact', route: '/(tabs)/about' },
       ],
     },
     ...(isAdmin ? [{
@@ -100,9 +116,10 @@ export default function MoreScreen() {
     {
       title: 'ACCOUNT',
       items: [
-        { testID: 'more-support', emoji: '📞', label: 'Support', sub: '+91 94865 44884 · Mon–Sat 9AM–6PM', onPress: () => Linking.openURL('tel:+919486544884') },
+        { testID: 'more-support', emoji: '📞', label: 'Support', sub: '+91 94865 44884 · Mon-Sat 9AM-6PM', onPress: () => Linking.openURL('tel:+919486544884') },
         { testID: 'more-logout', emoji: '🚪', label: 'Logout', sub: 'Sign out from this device', onPress: handleLogout, danger: true },
-        { testID: 'more-delete-account', emoji: '🗑️', label: 'Delete Account', sub: 'Delete all your data permanently', onPress: handleDeleteAccount, danger: true },
+        // Delete Account — only for regular vets, NOT for admin
+        ...(!isAdmin ? [{ testID: 'more-delete-account', emoji: '🗑️', label: 'Delete Account', sub: 'Delete all your data permanently', onPress: handleDeleteAccount, danger: true } as MenuItem] : []),
       ],
     },
   ];

@@ -261,6 +261,7 @@ class QuickCaseRequest(BaseModel):
     visit_reason: str
     visit_date: Optional[str] = None
     notes: Optional[str] = ""
+    opening_balance: Optional[float] = 0.0  # Previous pending amount
 
 class CloseCaseRequest(BaseModel):
     treatment_status: str = "treated"   # "treated" | "not_treated"
@@ -401,7 +402,33 @@ async def taluks(state: str, district: str):
 
 # --------------------------- villages autocomplete ----------------------------
 
-@api_router.get("/villages")
+@api_router.get("/export/my-clients")
+async def export_my_clients(user=Depends(get_current_user)):
+    """Export all unique clients for current vet as CSV."""
+    pipeline = [
+        {"$match": {"vet_id": user["id"]}},
+        {"$group": {
+            "_id": "$mobile",
+            "owner_name": {"$first": "$owner_name"},
+            "mobile": {"$first": "$mobile"},
+            "village_name": {"$first": "$village_name"},
+            "animal_types": {"$addToSet": "$animal_type"},
+            "total_cases": {"$sum": 1},
+            "total_paid": {"$sum": "$paid_amount"},
+            "outstanding": {"$sum": {"$cond": [{"$and": [{"$eq": ["$status", "closed"]}, {"$eq": ["$is_paid", False]}]}, "$amount", 0]}},
+            "last_visit": {"$max": "$visit_date"},
+        }},
+        {"$sort": {"owner_name": 1}},
+    ]
+    results = await db.cases.aggregate(pipeline).to_list(5000)
+    lines = ["CLIENT NAME,MOBILE,VILLAGE,ANIMAL TYPES,TOTAL CASES,TOTAL PAID (Rs),OUTSTANDING (Rs),LAST VISIT"]
+    for r in results:
+        last = r.get("last_visit")
+        visit_str = last.strftime('%d/%m/%Y') if last else ""
+        animals = "|".join([a for a in r.get("animal_types", []) if a])
+        outstanding = round(r.get("outstanding", 0), 2)
+        lines.append(f"{r['owner_name']},{r['mobile']},{r.get('village_name','')},{animals},{r['total_cases']},{round(r.get('total_paid',0),2)},{outstanding},{visit_str}")
+    return PlainTextResponse("\n".join(lines), media_type="text/csv")
 async def villages(user=Depends(get_current_user)):
     vlist = await db.cases.distinct("village_name", {"vet_id": user["id"], "village_name": {"$nin": [None, ""]}})
     return {"villages": sorted([v for v in vlist if v])}
@@ -450,6 +477,8 @@ async def quick_add_case(data: QuickCaseRequest, user=Depends(get_current_user))
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     visit_date = parse_date(data.visit_date) or today_start
     status = "upcoming" if visit_date > today_start else "active"
+    now = datetime.now(timezone.utc)
+
     result = await db.cases.insert_one({
         "vet_id": user["id"], "owner_name": data.owner_name, "mobile": data.mobile,
         "village_name": data.village_name or "", "animal_type": data.animal_type,
@@ -458,8 +487,23 @@ async def quick_add_case(data: QuickCaseRequest, user=Depends(get_current_user))
         "is_paid": False, "payment_mode": None, "paid_amount": 0.0,
         "paid_at": None, "follow_up_date": None,
         "forwarded_to_name": "", "forwarded_from": "",
-        "created_at": datetime.now(timezone.utc), "updated_at": datetime.now(timezone.utc),
+        "created_at": now, "updated_at": now,
     })
+
+    # If opening balance provided, create outstanding ledger entry
+    if data.opening_balance and data.opening_balance > 0:
+        await db.cases.insert_one({
+            "vet_id": user["id"], "owner_name": data.owner_name, "mobile": data.mobile,
+            "village_name": data.village_name or "", "animal_type": data.animal_type or "General",
+            "visit_reason": "Opening Balance", "visit_date": today_start, "amount": data.opening_balance,
+            "notes": "Previous pending balance", "status": "closed",
+            "treatment_status": "treated", "payment_status": "not_paid",
+            "is_paid": False, "payment_mode": None, "paid_amount": 0.0,
+            "paid_at": None, "follow_up_date": None,
+            "forwarded_to_name": "", "forwarded_from": "",
+            "created_at": now, "updated_at": now,
+        })
+
     return {"success": True, "message": "Case added", "case_id": str(result.inserted_id)}
 
 @api_router.get("/cases/today")

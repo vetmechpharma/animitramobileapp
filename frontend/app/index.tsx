@@ -2,22 +2,24 @@ import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView,
-  ActivityIndicator, Alert, ImageBackground, Linking, Dimensions,
+  ActivityIndicator, Alert, Image, Linking, Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
-const BG_IMAGE = 'https://images.unsplash.com/photo-1689269746312-21734f1931de?crop=entropy&cs=srgb&fm=jpg&q=80&w=800';
-
+const SUPPORT_WHATSAPP = '9486544884';
 const DEMO_MOBILE = '1234567890';
 const DEMO_PASSWORD = 'Demo@123';
-const SUPPORT_WHATSAPP = '9486544884';
+
+const LOGO = require('../assets/images/animitra-logo.png');
 
 export default function LoginScreen() {
   const router = useRouter();
   const { login, user, isLoading } = useAuth();
+  const insets = useSafeAreaInsets();
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -30,8 +32,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!mobile.trim() || !password.trim()) {
-      Alert.alert('Required', 'Please enter mobile number and password');
-      return;
+      Alert.alert('Required', 'Please enter mobile number and password'); return;
     }
     setLoading(true);
     try {
@@ -55,74 +56,44 @@ export default function LoginScreen() {
   const handleForgotPassword = () => {
     Alert.alert(
       '🔐 Forgot Password?',
-      `To get a new password, please WhatsApp or call our support:\n\n📱 +91 ${SUPPORT_WHATSAPP}\n\nSend message:\n"Reset password for [your mobile number]"\n\nOur team will reset it within a few hours.`,
+      `WhatsApp or call our support team:\n\n📱 +91 ${SUPPORT_WHATSAPP}\n\nSend: "Reset password for ${mobile || '[your mobile number]'}"\n\nWe'll reset it within a few hours.`,
       [
         { text: 'Close', style: 'cancel' },
-        {
-          text: '💬 WhatsApp Now',
-          onPress: () => Linking.openURL(`https://wa.me/91${SUPPORT_WHATSAPP}?text=Reset password for ${mobile || '[your mobile]'}`),
-        },
+        { text: '💬 WhatsApp Now', onPress: () => Linking.openURL(`https://wa.me/91${SUPPORT_WHATSAPP}?text=Reset password for ${mobile || '[mobile]'}`) },
       ]
     );
   };
 
-  if (isLoading) {
-    return (
-      <View style={s.center}>
-        <ActivityIndicator size="large" color="#2E7D32" />
-      </View>
-    );
-  }
+  if (isLoading) return <View style={s.center}><ActivityIndicator size="large" color="#006064" /></View>;
 
   return (
-    <View style={s.root}>
-      <StatusBar style="dark" />
+    <View style={[s.root, { paddingTop: insets.top }]}>
+      <StatusBar style="light" />
 
-      {/* Hero Section with Background Image */}
-      <ImageBackground
-        source={{ uri: BG_IMAGE }}
-        style={s.heroBg}
-        imageStyle={s.heroBgImg}
-      >
-        <View style={s.heroOverlay} />
-
-        {/* Logo */}
-        <View style={s.logoArea}>
-          <View style={s.logoCircle}>
-            <Text style={s.logoEmoji}>🐾</Text>
-            <View style={s.medicalBadge}>
-              <Text style={s.medicalText}>+</Text>
-            </View>
-          </View>
-          <Text style={s.appName}>
-            <Text style={s.appNameBlack}>Animitra</Text>
-            <Text style={s.appNameGreen}>VET</Text>
-          </Text>
-          <Text style={s.tagline}>
-            🐾  Compassionate Care. Healthy Animals. Stronger Future.  🤍
-          </Text>
-        </View>
-      </ImageBackground>
+      {/* Top background with logo */}
+      <View style={s.topBg}>
+        <View style={s.topDecCircle1} />
+        <View style={s.topDecCircle2} />
+        <View style={s.topDecCircle3} />
+        <Image source={LOGO} style={s.logo} resizeMode="contain" />
+        <Text style={s.appTagline}>SOFTWARE SOLUTIONS FOR ANIMAL CARE</Text>
+      </View>
 
       {/* Login Card */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={s.cardWrapper}
-      >
-        <ScrollView contentContainerStyle={s.cardScroll} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={s.cardScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={s.card}>
-            {/* Card Header */}
+
+            {/* Header */}
             <View style={s.cardHeader}>
-              <View style={s.shieldBadge}>
-                <Text style={s.shieldEmoji}>🛡️</Text>
-              </View>
+              <View style={s.shieldBadge}><Text style={s.shieldEmoji}>🛡️</Text></View>
               <View>
                 <Text style={s.welcomeTitle}>Welcome Back!</Text>
-                <Text style={s.welcomeSub}>Login to continue to AnimitraVET</Text>
+                <Text style={s.welcomeSub}>Login to continue to ANIMitraVET</Text>
               </View>
             </View>
 
-            {/* Mobile Input */}
+            {/* Mobile */}
             <View style={s.inputRow}>
               <Text style={s.inputIcon}>👤</Text>
               <TextInput
@@ -137,7 +108,7 @@ export default function LoginScreen() {
               />
             </View>
 
-            {/* Password Input */}
+            {/* Password */}
             <View style={s.inputRow}>
               <Text style={s.inputIcon}>🔒</Text>
               <TextInput
@@ -167,24 +138,17 @@ export default function LoginScreen() {
               disabled={loading}
               activeOpacity={0.85}
             >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Text style={s.loginBtnIcon}>🔐</Text>
-                  <Text style={s.loginBtnText}>Login</Text>
-                </>
+              {loading ? <ActivityIndicator color="#fff" /> : (
+                <><Text style={s.loginBtnIcon}>🔐</Text><Text style={s.loginBtnText}>Login</Text></>
               )}
             </TouchableOpacity>
 
             {/* Divider */}
             <View style={s.divRow}>
-              <View style={s.divLine} />
-              <Text style={s.divText}>or continue with</Text>
-              <View style={s.divLine} />
+              <View style={s.divLine} /><Text style={s.divText}>or</Text><View style={s.divLine} />
             </View>
 
-            {/* Demo Login */}
+            {/* Demo */}
             <TouchableOpacity
               testID="demo-login-btn"
               style={[s.demoBtn, demoLoading && s.btnDisabled]}
@@ -192,11 +156,7 @@ export default function LoginScreen() {
               disabled={demoLoading}
               activeOpacity={0.8}
             >
-              {demoLoading ? (
-                <ActivityIndicator color="#2E7D32" />
-              ) : (
-                <Text style={s.demoBtnText}>🔬  Try Demo Account</Text>
-              )}
+              {demoLoading ? <ActivityIndicator color="#006064" /> : <Text style={s.demoBtnText}>🔬  Try Demo Account</Text>}
             </TouchableOpacity>
 
             {/* Sign Up */}
@@ -208,106 +168,90 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          {/* Bottom Features Strip */}
-          <View style={s.featuresStrip}>
-            {[
-              { emoji: '🏥', label: 'Expert\nVeterinary' },
-              { emoji: '🐄', label: 'Farm\nAnimal' },
-              { emoji: '💊', label: 'Health &\nGrowth' },
-            ].map(f => (
-              <View key={f.label} style={s.featureItem}>
-                <Text style={s.featureEmoji}>{f.emoji}</Text>
-                <Text style={s.featureLabel}>{f.label}</Text>
-              </View>
-            ))}
-          </View>
+          <Text style={s.versionText}>ANIMitraVET v1.3 · Veterinary Practice Manager</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
   );
 }
 
-const C = { primary: '#2E7D32', primaryDark: '#1B5E20', text: '#1A2E1C', sub: '#5A7060', fill: '#EBF5EC', border: '#D0E8D2' };
+const PRIMARY = '#006064';
+const PRIMARY_LIGHT = '#E0F2F1';
+const PRIMARY_MID = '#00838F';
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F4F9F4' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F9F4' },
-  // Hero
-  heroBg: { height: height * 0.42, width: '100%' },
-  heroBgImg: { resizeMode: 'cover' },
-  heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(240,248,240,0.25)' },
-  logoArea: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 40 },
-  logoCircle: {
-    width: 86, height: 86, borderRadius: 43,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    borderWidth: 2.5, borderColor: C.primary,
-    justifyContent: 'center', alignItems: 'center',
-    marginBottom: 10,
+  root: { flex: 1, backgroundColor: '#004D40' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#004D40' },
+
+  // Top section
+  topBg: {
+    height: height * 0.38, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#004D40', overflow: 'hidden', position: 'relative',
   },
-  logoEmoji: { fontSize: 40 },
-  medicalBadge: {
-    position: 'absolute', top: 0, right: 2,
-    width: 22, height: 22, borderRadius: 11,
-    backgroundColor: C.primary,
-    justifyContent: 'center', alignItems: 'center',
+  topDecCircle1: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    backgroundColor: 'rgba(0,131,143,0.15)', top: -50, right: -50,
   },
-  medicalText: { color: '#fff', fontSize: 14, fontFamily: 'Inter_800ExtraBold', lineHeight: 16 },
-  appName: { marginBottom: 6 },
-  appNameBlack: { fontFamily: 'Inter_800ExtraBold', fontSize: 28, color: '#1A2E1C', letterSpacing: -0.5 },
-  appNameGreen: { fontFamily: 'Inter_800ExtraBold', fontSize: 28, color: C.primary, letterSpacing: -0.5 },
-  tagline: { fontFamily: 'Inter_500Medium', fontSize: 12, color: '#2E4A30', textAlign: 'center', paddingHorizontal: 20, backgroundColor: 'rgba(255,255,255,0.7)', paddingVertical: 4, borderRadius: 20 },
+  topDecCircle2: {
+    position: 'absolute', width: 150, height: 150, borderRadius: 75,
+    backgroundColor: 'rgba(0,131,143,0.10)', bottom: -30, left: -40,
+  },
+  topDecCircle3: {
+    position: 'absolute', width: 80, height: 80, borderRadius: 40,
+    backgroundColor: 'rgba(0,188,212,0.12)', top: 20, left: 30,
+  },
+  logo: { width: width * 0.52, height: width * 0.52, maxWidth: 220, maxHeight: 220 },
+  appTagline: {
+    fontFamily: 'Inter_500Medium', fontSize: 10, color: 'rgba(200,240,240,0.7)',
+    letterSpacing: 1.5, textAlign: 'center', marginTop: -8,
+  },
+
   // Card
-  cardWrapper: { flex: 1, marginTop: -24 },
-  cardScroll: { paddingBottom: 20 },
+  cardScroll: { paddingBottom: 24 },
   card: {
-    backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    backgroundColor: '#fff', borderTopLeftRadius: 32, borderTopRightRadius: 32,
     paddingHorizontal: 22, paddingTop: 24, paddingBottom: 16,
-    boxShadow: '0px -4px 20px rgba(46,125,50,0.10)',
+    boxShadow: '0px -4px 20px rgba(0,77,64,0.2)',
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
-  shieldBadge: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.fill, justifyContent: 'center', alignItems: 'center' },
+  shieldBadge: { width: 44, height: 44, borderRadius: 22, backgroundColor: PRIMARY_LIGHT, justifyContent: 'center', alignItems: 'center' },
   shieldEmoji: { fontSize: 22 },
-  welcomeTitle: { fontFamily: 'Inter_800ExtraBold', fontSize: 18, color: C.text },
-  welcomeSub: { fontFamily: 'Inter_400Regular', fontSize: 12, color: C.sub, marginTop: 1 },
+  welcomeTitle: { fontFamily: 'Inter_800ExtraBold', fontSize: 18, color: '#1A2E2E' },
+  welcomeSub: { fontFamily: 'Inter_400Regular', fontSize: 12, color: '#5A7070', marginTop: 1 },
+
   // Inputs
   inputRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: C.fill, borderRadius: 12,
-    borderWidth: 1, borderColor: C.border,
+    backgroundColor: '#F0F9F9', borderRadius: 12,
+    borderWidth: 1, borderColor: '#CCE8E8',
     paddingHorizontal: 12, height: 50, marginBottom: 12, gap: 8,
   },
   inputIcon: { fontSize: 18 },
-  input: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 15, color: C.text },
+  input: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 15, color: '#1A2E2E' },
   eyeBtn: { padding: 4 },
   eyeIcon: { fontSize: 18 },
   forgotRow: { alignSelf: 'flex-end', marginBottom: 16, marginTop: -4 },
-  forgotText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: C.primary },
+  forgotText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: PRIMARY },
+
   // Buttons
   loginBtn: {
-    height: 50, backgroundColor: C.primary, borderRadius: 14,
+    height: 50, backgroundColor: PRIMARY, borderRadius: 14,
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8,
-    marginBottom: 16, boxShadow: '0px 4px 16px rgba(46,125,50,0.30)',
+    marginBottom: 16, boxShadow: '0px 4px 16px rgba(0,77,64,0.30)',
   },
   btnDisabled: { opacity: 0.65 },
   loginBtnIcon: { fontSize: 18 },
   loginBtnText: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#fff' },
   divRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, gap: 8 },
-  divLine: { flex: 1, height: 1, backgroundColor: C.border },
-  divText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: C.sub },
+  divLine: { flex: 1, height: 1, backgroundColor: '#CCE8E8' },
+  divText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: '#5A7070' },
   demoBtn: {
-    height: 46, borderRadius: 12, borderWidth: 1.5, borderColor: C.primary,
-    backgroundColor: C.fill, justifyContent: 'center', alignItems: 'center', marginBottom: 16,
+    height: 46, borderRadius: 12, borderWidth: 1.5, borderColor: PRIMARY,
+    backgroundColor: PRIMARY_LIGHT, justifyContent: 'center', alignItems: 'center', marginBottom: 16,
   },
-  demoBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: C.primary },
+  demoBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: PRIMARY },
   signupRow: { flexDirection: 'row', justifyContent: 'center' },
-  signupText: { fontFamily: 'Inter_400Regular', fontSize: 14, color: C.sub },
-  signupLink: { fontFamily: 'Inter_700Bold', fontSize: 14, color: C.primary },
-  // Bottom strip
-  featuresStrip: {
-    flexDirection: 'row', justifyContent: 'space-around',
-    backgroundColor: C.primaryDark, padding: 14, marginTop: 0,
-  },
-  featureItem: { alignItems: 'center', gap: 4 },
-  featureEmoji: { fontSize: 22 },
-  featureLabel: { fontFamily: 'Inter_500Medium', fontSize: 10, color: 'rgba(255,255,255,0.85)', textAlign: 'center' },
+  signupText: { fontFamily: 'Inter_400Regular', fontSize: 14, color: '#5A7070' },
+  signupLink: { fontFamily: 'Inter_700Bold', fontSize: 14, color: PRIMARY },
+  versionText: { fontFamily: 'Inter_400Regular', fontSize: 11, color: 'rgba(255,255,255,0.4)', textAlign: 'center', paddingTop: 12 },
 });
