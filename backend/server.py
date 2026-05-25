@@ -29,7 +29,7 @@ COUPON_LENGTH = 8
 INITIAL_COUPON_COUNT = 10000
 PAYMENT_MODES = ["Cash", "GPay", "Online", "Cheque", "Other"]
 
-# ─────────────────────────── auth helpers ─────────────────────────────────────
+# --------------------------- auth helpers -------------------------------------
 
 def hash_password(p: str) -> str:
     return bcrypt.hashpw(p.encode(), bcrypt.gensalt()).decode()
@@ -68,7 +68,7 @@ async def get_admin_user(request: Request):
         raise HTTPException(403, "Admin access required")
     return user
 
-# ─────────────────────────── case helpers ─────────────────────────────────────
+# --------------------------- case helpers -------------------------------------
 
 def fmt_case(c: dict) -> dict:
     vd = c.get("visit_date") or c.get("created_at")
@@ -111,7 +111,7 @@ def parse_date(date_str: Optional[str]) -> Optional[datetime]:
     except Exception:
         return None
 
-# ─────────────────────────── startup ──────────────────────────────────────────
+# --------------------------- startup ------------------------------------------
 
 @app.on_event("startup")
 async def startup():
@@ -230,23 +230,18 @@ async def _seed_demo_cases(vet_id: str):
     logger.info(f"Seeded {len(cases)} demo cases")
 
 def write_test_credentials():
-    Path("/app/memory/test_credentials.md").write_text("""# Animitra Test Credentials
-
-## Admin
-- Mobile: 9999999999 | Password: Admin@1234 | Role: admin
-
-## Demo Vet
-- Mobile: 1234567890 | Password: Demo@123 | Role: vet (pre-seeded cases)
-
-## Auth Endpoints
-- POST /api/auth/register, /api/auth/login, /api/auth/activate, GET /api/auth/me
-""")
+    try:
+        content = """# Animitra Test Credentials\n\n## Admin\n- Mobile: 9999999999 | Password: Admin@1234\n\n## Demo Vet\n- Mobile: 1234567890 | Password: Demo@123\n"""
+        cred_path = Path("./test_credentials.md")
+        cred_path.write_text(content)
+    except Exception:
+        pass  # Non-critical - skip if path not writable
 
 @app.on_event("shutdown")
 async def shutdown():
     client.close()
 
-# ─────────────────────────── models ───────────────────────────────────────────
+# --------------------------- models -------------------------------------------
 
 class RegisterRequest(BaseModel):
     name: str; reg_no: str; mobile: str; password: str
@@ -288,7 +283,7 @@ class ForwardCaseRequest(BaseModel):
 class GenerateCouponsRequest(BaseModel):
     count: int = 100
 
-# ─────────────────────────── auth routes ──────────────────────────────────────
+# --------------------------- auth routes --------------------------------------
 
 @api_router.post("/auth/register")
 async def register(data: RegisterRequest):
@@ -350,7 +345,7 @@ async def login(data: LoginRequest):
     uid = str(user["_id"])
     role = user.get("role", "vet")
 
-    # Activated users — full access, no trial
+    # Activated users - full access, no trial
     if user.get("is_activated"):
         return {"success": True, "token": create_token(uid, data.mobile, role),
                 "user": {
@@ -361,7 +356,7 @@ async def login(data: LoginRequest):
                     "is_trial": False, "is_trial_expired": False, "trial_days_left": 0,
                 }}
 
-    # Trial logic — 7-day free trial
+    # Trial logic - 7-day free trial
     trial_start = user.get("trial_start_date") or user.get("created_at")
     if trial_start is None:
         trial_start = datetime.now(timezone.utc)
@@ -373,7 +368,7 @@ async def login(data: LoginRequest):
     trial_days_left = max(0, 7 - days_elapsed)
     is_trial_expired = days_elapsed >= 7
 
-    # ALWAYS allow login during AND after trial — just mark status
+    # ALWAYS allow login during AND after trial - just mark status
     # Expired trial users can still view data, just can't add new entries
     return {"success": True, "token": create_token(uid, data.mobile, role),
             "user": {
@@ -390,7 +385,7 @@ async def login(data: LoginRequest):
 async def me(user=Depends(get_current_user)):
     return {"success": True, "user": user}
 
-# ─────────────────────────── location ─────────────────────────────────────────
+# --------------------------- location -----------------------------------------
 
 @api_router.get("/location/states")
 async def states():
@@ -404,7 +399,7 @@ async def districts(state: str):
 async def taluks(state: str, district: str):
     return {"taluks": get_taluks(state, district)}
 
-# ─────────────────────────── villages autocomplete ────────────────────────────
+# --------------------------- villages autocomplete ----------------------------
 
 @api_router.get("/villages")
 async def villages(user=Depends(get_current_user)):
@@ -448,7 +443,7 @@ async def farmer_lookup(q: str = "", user=Depends(get_current_user)):
     return {"farmers": farmers}
 
 
-# ─────────────────────────── case routes ──────────────────────────────────────
+# --------------------------- case routes --------------------------------------
 
 @api_router.post("/cases/quick-add")
 async def quick_add_case(data: QuickCaseRequest, user=Depends(get_current_user)):
@@ -527,7 +522,7 @@ async def close_case(case_id: str, data: CloseCaseRequest, user=Depends(get_curr
             "paid_at": now if actual_paid > 0 else None,
         })
     else:
-        # Not treated — no charges
+        # Not treated - no charges
         update.update({
             "amount": 0.0, "payment_status": "not_applicable",
             "payment_mode": None, "paid_amount": 0.0,
@@ -601,7 +596,7 @@ async def list_cases(status: Optional[str] = None, skip: int = 0, limit: int = 5
     cursor = db.cases.find(query).sort("visit_date", -1).skip(skip).limit(limit)
     return {"total": total, "cases": [fmt_case(c) async for c in cursor]}
 
-# ─────────────────────────── ledger ───────────────────────────────────────────
+# --------------------------- ledger -------------------------------------------
 
 @api_router.delete("/cases/{case_id}")
 async def delete_case(case_id: str, user=Depends(get_current_user)):
@@ -613,7 +608,7 @@ async def delete_case(case_id: str, user=Depends(get_current_user)):
 
 @api_router.delete("/users/me")
 async def delete_my_account(user=Depends(get_current_user)):
-    """Factory reset — delete all user data. Admin-deleted users can re-register."""
+    """Factory reset - delete all user data. Freed mobile can re-register."""
     uid = user["id"]
     await db.cases.delete_many({"vet_id": uid})
     await db.payment_submissions.delete_many({"user_id": uid})
@@ -624,7 +619,7 @@ async def delete_my_account(user=Depends(get_current_user)):
 
 @api_router.post("/admin/users/{uid}/delete")
 async def admin_delete_user(uid: str, user=Depends(get_admin_user)):
-    """Admin deletes a user — their mobile is freed for re-registration."""
+    """Admin deletes a user - their mobile is freed for re-registration."""
     await db.cases.delete_many({"vet_id": uid})
     await db.payment_submissions.delete_many({"user_id": uid})
     await db.users.delete_one({"_id": ObjectId(uid)})
@@ -703,7 +698,7 @@ async def farmer_collect(data: FarmerCollectRequest, user=Depends(get_current_us
             total_applied += case_outstanding
             remaining = round(remaining - case_outstanding, 2)
         else:
-            # Partial — pay remaining balance into this case
+            # Partial - pay remaining balance into this case
             new_paid = round(c.get("paid_amount", 0) + remaining, 2)
             await db.cases.update_one({"_id": c["_id"]}, {"$set": {
                 "paid_amount": new_paid, "is_paid": False,
@@ -714,7 +709,7 @@ async def farmer_collect(data: FarmerCollectRequest, user=Depends(get_current_us
 
     return {"success": True, "collected": round(total_applied, 2)}
 
-# ─────────────────────────── dashboard stats ──────────────────────────────────
+# --------------------------- dashboard stats ----------------------------------
 
 @api_router.get("/dashboard/stats")
 async def dashboard_stats(user=Depends(get_current_user)):
@@ -742,7 +737,7 @@ async def dashboard_stats(user=Depends(get_current_user)):
             "today_earnings": today_earnings, "total_earnings": total_earnings,
             "pending_payments": pending_payments, "total_cases": total_cases}
 
-# ─────────────────────────── admin coupons ────────────────────────────────────
+# --------------------------- admin coupons ------------------------------------
 
 @api_router.get("/admin/coupons")
 async def list_coupons(skip: int = 0, limit: int = 100, only_unused: bool = False,
@@ -781,7 +776,7 @@ async def export_coupons(user=Depends(get_admin_user)):
         lines.append(f"{c['code']},UNUSED,{c['created_at'].strftime('%Y-%m-%d %H:%M:%S')}")
     return PlainTextResponse("\n".join(lines), media_type="text/csv")
 
-# ─────────────────────────── subscription / UTR ───────────────────────────────
+# --------------------------- subscription / UTR -------------------------------
 
 class UTRRequest(BaseModel):
     utr_number: str
@@ -815,7 +810,7 @@ async def submit_utr(data: UTRRequest, user=Depends(get_current_user)):
     return {"success": True, "message": "UTR submitted. You will receive your coupon code shortly."}
 
 
-# ─────────────────────────── reports ──────────────────────────────────────────
+# --------------------------- reports ------------------------------------------
 
 @api_router.get("/reports/animal-type")
 async def report_animal_type(period: str = "month", user=Depends(get_current_user)):
@@ -848,7 +843,7 @@ async def report_forwards(user=Depends(get_current_user)):
     return {"total": len(cases), "cases": cases}
 
 
-# ─────────────────────────── admin extended ───────────────────────────────────
+# --------------------------- admin extended -----------------------------------
 
 @api_router.get("/admin/users")
 async def admin_users(user=Depends(get_admin_user)):
@@ -917,7 +912,7 @@ async def admin_export_users(user=Depends(get_admin_user)):
     return PlainTextResponse("\n".join(lines), media_type="text/csv")
 
 
-# ─────────────────────────── banners ─────────────────────────────────────────
+# --------------------------- banners -----------------------------------------
 
 class BannerRequest(BaseModel):
     title: str
@@ -1072,7 +1067,7 @@ async def admin_reports_summary(user=Depends(get_admin_user)):
     }
 
 
-# ─────────────────────────── health ───────────────────────────────────────────
+# --------------------------- health -------------------------------------------
 
 @api_router.get("/")
 async def root():
