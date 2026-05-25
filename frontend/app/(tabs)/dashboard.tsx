@@ -96,6 +96,7 @@ export default function DashboardScreen() {
   const [farmerSuggestions, setFarmerSuggestions] = useState<any[]>([]);
   const [showFarmerSug, setShowFarmerSug] = useState(false);
   const [autoFilledBanner, setAutoFilledBanner] = useState('');
+  const [globalSuggestion, setGlobalSuggestion] = useState<{ name: string; village: string } | null>(null);
 
   // Close Case
   const [closeCase, setCloseCase] = useState<Case | null>(null);
@@ -186,22 +187,44 @@ export default function DashboardScreen() {
     checkAndAutoFillFarmer(num);
   };
 
-  const checkAndAutoFillFarmer = (mobile: string) => {
+  const checkAndAutoFillFarmer = async (mobile: string) => {
     if (mobile.length !== 10) return;
+
+    // 1. Check vet-specific known farmers first
     const match = knownFarmers.find(f => f.mobile === mobile);
     if (match) {
       setQuickForm(f => ({ ...f, mobile, owner_name: match.owner_name, village_name: match.village_name || f.village_name }));
-      setAutoFilledBanner(`✅ Found: ${match.owner_name}${match.village_name ? ` · ${match.village_name}` : ''} (${match.case_count} prev visit${match.case_count > 1 ? 's' : ''})`);
+      setAutoFilledBanner(`✅ Your previous client: ${match.owner_name}${match.village_name ? ` · ${match.village_name}` : ''} (${match.case_count} visit${match.case_count > 1 ? 's' : ''})`);
       setShowFarmerSug(false);
-    } else {
-      setAutoFilledBanner('');
+      return;
     }
+
+    // 2. Cross-vet global suggestion
+    if (token) {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/farmer-suggest?mobile=${mobile}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.names?.length > 0) {
+          const sugName = data.names[0];
+          const sugVillage = data.villages?.[0] || '';
+          setAutoFilledBanner(`💡 Known as: ${sugName}${sugVillage ? ` · ${sugVillage}` : ''} — Tap to use or type your own`);
+          // Store suggestion for easy apply
+          setGlobalSuggestion({ name: sugName, village: sugVillage });
+          return;
+        }
+      } catch (e) { /* silent */ }
+    }
+    setAutoFilledBanner('');
+    setGlobalSuggestion(null);
   };
 
   const handleMobileChange = (v: string) => {
     const digits = v.replace(/\D/g, '').slice(0, 10);
     setQuickForm(f => ({ ...f, mobile: digits }));
     setAutoFilledBanner('');
+    setGlobalSuggestion(null);
     if (digits.length === 10) checkAndAutoFillFarmer(digits);
   };
 
@@ -599,9 +622,25 @@ export default function DashboardScreen() {
 
                 {/* Auto-fill banner */}
                 {!!autoFilledBanner && (
-                  <View style={styles.autoFilledBanner} testID="autofill-banner">
+                  <TouchableOpacity
+                    testID="autofill-banner"
+                    style={styles.autoFilledBanner}
+                    onPress={() => {
+                      if (globalSuggestion) {
+                        setQuickForm(f => ({
+                          ...f,
+                          owner_name: f.owner_name || globalSuggestion.name,
+                          village_name: f.village_name || globalSuggestion.village,
+                        }));
+                        setAutoFilledBanner(`✅ Applied: ${globalSuggestion.name}${globalSuggestion.village ? ` · ${globalSuggestion.village}` : ''}`);
+                        setGlobalSuggestion(null);
+                      }
+                    }}
+                    activeOpacity={globalSuggestion ? 0.7 : 1}
+                  >
                     <Text style={styles.autoFilledText}>{autoFilledBanner}</Text>
-                  </View>
+                    {globalSuggestion && <Text style={[styles.autoFilledText, { fontSize: 11, marginTop: 2 }]}>Tap to apply →</Text>}
+                  </TouchableOpacity>
                 )}
 
                 {/* Village */}

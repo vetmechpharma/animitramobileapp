@@ -472,7 +472,37 @@ async def farmer_lookup(q: str = "", user=Depends(get_current_user)):
 
 # --------------------------- case routes --------------------------------------
 
-@api_router.post("/cases/quick-add")
+async def update_farmer_directory(mobile: str, owner_name: str, village_name: str):
+    """Update global farmer directory for cross-vet name/village suggestions."""
+    try:
+        await db.farmer_directory.update_one(
+            {"mobile": mobile},
+            {
+                "$inc": {
+                    f"names.{owner_name.replace('.','_')}": 1,
+                    f"villages.{village_name.replace('.','_') if village_name else '_blank'}": 1,
+                },
+                "$setOnInsert": {"mobile": mobile, "created_at": datetime.now(timezone.utc)},
+            },
+            upsert=True
+        )
+    except Exception:
+        pass  # Non-critical
+
+
+@api_router.get("/farmer-suggest")
+async def farmer_suggest(mobile: str = "", user=Depends(get_current_user)):
+    """Global cross-vet farmer name+village suggestions by mobile."""
+    if not mobile or len(mobile) < 10:
+        return {"names": [], "villages": []}
+    entry = await db.farmer_directory.find_one({"mobile": mobile})
+    if not entry:
+        return {"names": [], "villages": []}
+    names_raw = entry.get("names", {})
+    villages_raw = entry.get("villages", {})
+    names = [k.replace('_', '.') for k, _ in sorted(names_raw.items(), key=lambda x: x[1], reverse=True) if k]
+    villages = [k.replace('_', '.') for k, _ in sorted(villages_raw.items(), key=lambda x: x[1], reverse=True) if k and k != '_blank']
+    return {"names": names[:5], "villages": villages[:5]}
 async def quick_add_case(data: QuickCaseRequest, user=Depends(get_current_user)):
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     visit_date = parse_date(data.visit_date) or today_start
@@ -489,6 +519,10 @@ async def quick_add_case(data: QuickCaseRequest, user=Depends(get_current_user))
         "forwarded_to_name": "", "forwarded_from": "",
         "created_at": now, "updated_at": now,
     })
+
+    # Update global farmer directory for cross-vet suggestions
+    if data.mobile and data.owner_name:
+        await update_farmer_directory(data.mobile, data.owner_name, data.village_name or "")
 
     # If opening balance provided, create outstanding ledger entry
     if data.opening_balance and data.opening_balance > 0:
@@ -642,7 +676,19 @@ async def list_cases(status: Optional[str] = None, skip: int = 0, limit: int = 5
 
 # --------------------------- ledger -------------------------------------------
 
-@api_router.delete("/cases/{case_id}")
+@api_router.put("/cases/{case_id}")
+async def edit_case(case_id: str, data: dict, user=Depends(get_current_user)):
+    """Edit notes and visit_reason of a case."""
+    case = await db.cases.find_one({"_id": ObjectId(case_id), "vet_id": user["id"]})
+    if not case:
+        raise HTTPException(404, "Case not found")
+    update = {"updated_at": datetime.now(timezone.utc)}
+    if "notes" in data:
+        update["notes"] = data["notes"]
+    if "visit_reason" in data and data["visit_reason"]:
+        update["visit_reason"] = data["visit_reason"]
+    await db.cases.update_one({"_id": ObjectId(case_id)}, {"$set": update})
+    return {"success": True}
 async def delete_case(case_id: str, user=Depends(get_current_user)):
     result = await db.cases.delete_one({"_id": ObjectId(case_id), "vet_id": user["id"]})
     if result.deleted_count == 0:
