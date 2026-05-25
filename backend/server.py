@@ -864,7 +864,33 @@ async def admin_users(user=Depends(get_admin_user)):
     return {"total": len(users), "users": users}
 
 
-@api_router.post("/admin/users/{uid}/suspend")
+@api_router.post("/admin/users/{uid}/activate")
+async def admin_activate_user(uid: str, user=Depends(get_admin_user)):
+    """Admin directly activates a user - auto-picks an unused coupon."""
+    target = await db.users.find_one({"_id": ObjectId(uid)})
+    if not target:
+        raise HTTPException(404, "User not found")
+    if target.get("is_activated"):
+        raise HTTPException(400, "User is already activated")
+
+    # Auto-pick first available unused coupon
+    coupon = await db.coupons.find_one({"is_activated": False})
+    if not coupon:
+        raise HTTPException(400, "No available coupon codes. Please generate more.")
+
+    now = datetime.now(timezone.utc)
+    # Mark coupon as used
+    await db.coupons.update_one({"_id": coupon["_id"]}, {"$set": {
+        "is_activated": True, "activated_by": uid,
+        "activated_at": now, "activated_by_admin": user["id"]
+    }})
+    # Activate user
+    await db.users.update_one({"_id": ObjectId(uid)}, {"$set": {
+        "is_activated": True, "coupon_code": coupon["code"],
+        "activated_at": now,
+    }})
+    return {"success": True, "coupon_used": coupon["code"],
+            "message": f"User activated with coupon {coupon['code']}"}
 async def admin_suspend(uid: str, data: SuspendRequest, user=Depends(get_admin_user)):
     await db.users.update_one({"_id": ObjectId(uid)},
         {"$set": {"is_suspended": True, "suspend_reason": data.reason or "Suspended by admin"}})
