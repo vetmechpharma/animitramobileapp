@@ -2,10 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView, FlatList,
   TouchableOpacity, ActivityIndicator, Alert, RefreshControl,
-  TextInput, Modal, Platform,
+  TextInput, Modal, Platform, Share, Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
+import * as ImagePicker from 'expo-image-picker';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 const C = {
@@ -327,12 +328,36 @@ export default function AdminScreen() {
                         placeholder="e.g. Special Offer — 20% off medicines"
                         placeholderTextColor="#9EB09F" value={newBanner.title}
                         onChangeText={v => setNewBanner(n => ({ ...n, title: v }))} />
-                      <Text style={s.suspendLabel}>IMAGE URL *</Text>
-                      <TextInput testID="banner-img-input" style={s.suspendInput}
-                        placeholder="https://your-site.com/banner.jpg"
-                        placeholderTextColor="#9EB09F" value={newBanner.image_url}
-                        onChangeText={v => setNewBanner(n => ({ ...n, image_url: v }))}
-                        autoCapitalize="none" keyboardType="url" />
+                      <Text style={s.suspendLabel}>IMAGE URL <Text style={{ color: C.sub, fontWeight: '400' }}>or pick from gallery</Text></Text>
+                      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
+                        <TextInput testID="banner-img-input" style={[s.suspendInput, { flex: 1, marginBottom: 0 }]}
+                          placeholder="https://your-site.com/banner.jpg"
+                          placeholderTextColor="#9EB09F" value={newBanner.image_url}
+                          onChangeText={v => setNewBanner(n => ({ ...n, image_url: v }))}
+                          autoCapitalize="none" keyboardType="url" />
+                        <TouchableOpacity
+                          style={{ height: 52, width: 52, backgroundColor: C.fill, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: C.border }}
+                          onPress={async () => {
+                            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                            if (status !== 'granted') { Alert.alert('Permission needed', 'Allow gallery access'); return; }
+                            const result = await ImagePicker.launchImageLibraryAsync({
+                              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                              base64: true,
+                              quality: 0.7,
+                              allowsEditing: true,
+                              aspect: [16, 9],
+                            });
+                            if (!result.canceled && result.assets[0].base64) {
+                              const b64 = `data:image/jpeg;base64,${result.assets[0].base64}`;
+                              setNewBanner(n => ({ ...n, image_url: b64 }));
+                            }
+                          }}>
+                          <Text style={{ fontSize: 22 }}>🖼</Text>
+                        </TouchableOpacity>
+                      </View>
+                      {newBanner.image_url ? (
+                        <Image source={{ uri: newBanner.image_url }} style={{ width: '100%', height: 100, borderRadius: 8, marginBottom: 8 }} resizeMode="cover" />
+                      ) : null}
                       <Text style={s.suspendLabel}>LINK URL *</Text>
                       <TextInput testID="banner-link-input" style={s.suspendInput}
                         placeholder="https://wa.me/919486544884 or any link"
@@ -391,8 +416,10 @@ export default function AdminScreen() {
                     try {
                       const r = await fetch(`${BACKEND_URL}/api/admin/export/owner-data`, {headers: h});
                       const csv = await r.text();
-                      const { Share } = require('react-native');
-                      await Share.share({ message: csv, title: 'Animitra Owner Data Export' });
+                      await Share.share({
+                        message: csv,
+                        title: 'Animitra Owner Data Export',
+                      });
                     } catch(e) { Alert.alert('Error', 'Could not export data'); }
                   }}>
                   <Text style={s.exportBtnText}>📤 Export & Share via WhatsApp</Text>

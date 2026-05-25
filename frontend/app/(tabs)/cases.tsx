@@ -203,7 +203,23 @@ export default function CasesScreen() {
           </>
         )}
 
-        {c.status === 'pending' && (
+        {c.status === 'closed' && (
+          <TouchableOpacity testID={`delete-case-${c.id}`}
+            style={styles.deleteBtn}
+            onPress={() => {
+              Alert.alert('Delete Case', `Delete ${c.owner_name}'s case? This cannot be undone.`, [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Delete', style: 'destructive', onPress: async () => {
+                  try {
+                    await fetch(`${BACKEND_URL}/api/cases/${c.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+                    fetchCases();
+                  } catch (e) { Alert.alert('Error', 'Could not delete'); }
+                }},
+              ]);
+            }}>
+            <Text style={styles.deleteBtnText}>🗑</Text>
+          </TouchableOpacity>
+        )}
           <>
             <TouchableOpacity testID={`cases-close-pend-${c.id}`} style={styles.closeBtn} onPress={() => openClose(c)}>
               <Text style={styles.closeBtnText}>✓ Close</Text>
@@ -467,7 +483,8 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 11, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text },
   amountText: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', textAlign: 'right' },
   cardActions: { flexDirection: 'row', gap: 8 },
-  callBtn: { flex: 1, backgroundColor: C.secondary, borderRadius: 10, paddingVertical: 8, alignItems: 'center' },
+  deleteBtn: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#FFEBEE', justifyContent: 'center', alignItems: 'center' },
+  deleteBtnText: { fontSize: 16 },
   callBtnText: { fontSize: 13, fontWeight: '600', fontFamily: 'Inter_600SemiBold', color: C.primary },
   closeBtn: { backgroundColor: C.primary, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, alignItems: 'center' },
   closeBtnText: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#fff' },

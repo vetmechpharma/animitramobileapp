@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function TabIcon({ emoji, label, focused }: { emoji: string; label: string; focused: boolean }) {
   return (
@@ -22,8 +23,11 @@ const s = StyleSheet.create({
 export default function TabsLayout() {
   const { user } = useAuth();
   const { width } = useWindowDimensions();
-  const isAdmin = user?.role === 'admin';
-  const tabH = width < 380 ? 52 : 58;
+  const insets = useSafeAreaInsets();
+
+  // Proper height accounting for Android gesture navigation bar
+  const tabBarPaddingBottom = Math.max(6, insets.bottom + 4);
+  const tabBarHeight = (width < 380 ? 48 : 52) + insets.bottom;
 
   return (
     <Tabs screenOptions={{
@@ -32,8 +36,8 @@ export default function TabsLayout() {
         backgroundColor: '#FFFFFF',
         borderTopColor: '#D0E8D2',
         borderTopWidth: 1,
-        height: tabH,
-        paddingBottom: 6,
+        height: tabBarHeight,
+        paddingBottom: tabBarPaddingBottom,
         paddingTop: 5,
       },
       tabBarShowLabel: false,

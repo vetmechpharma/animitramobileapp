@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, Alert, useWindowDimensions, Linking,
+  TouchableOpacity, Alert, useWindowDimensions, Linking, Share,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
@@ -58,6 +58,31 @@ export default function MoreScreen() {
     ]);
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      '⚠️ Delete Account',
+      'This will permanently delete ALL your cases, payments, and account data. Cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Everything', style: 'destructive',
+          onPress: async () => {
+            try {
+              await fetch(`${BACKEND_URL}/api/users/me`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              await logout();
+              router.replace('/');
+            } catch (e) {
+              Alert.alert('Error', 'Could not delete account. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const sections: { title: string; items: MenuItem[] }[] = [
     {
       title: 'TOOLS',
@@ -77,6 +102,7 @@ export default function MoreScreen() {
       items: [
         { testID: 'more-support', emoji: '📞', label: 'Support', sub: '+91 94865 44884 · Mon–Sat 9AM–6PM', onPress: () => Linking.openURL('tel:+919486544884') },
         { testID: 'more-logout', emoji: '🚪', label: 'Logout', sub: 'Sign out from this device', onPress: handleLogout, danger: true },
+        { testID: 'more-delete-account', emoji: '🗑️', label: 'Delete Account', sub: 'Delete all your data permanently', onPress: handleDeleteAccount, danger: true },
       ],
     },
   ];

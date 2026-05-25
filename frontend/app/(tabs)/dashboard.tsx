@@ -504,11 +504,10 @@ export default function DashboardScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* FAB */}
+      {/* FAB — Circle "+" button */}
       <Animated.View style={[styles.fabWrap, { transform: [{ scale: fabAnim }] }]}>
-        <TouchableOpacity testID="fab-quick-add" style={styles.fab} onPress={openQuickAdd}>
+        <TouchableOpacity testID="fab-quick-add" style={styles.fab} onPress={openQuickAdd} activeOpacity={0.85}>
           <Text style={styles.fabIcon}>+</Text>
-          <Text style={styles.fabLabel}>Quick Add</Text>
         </TouchableOpacity>
       </Animated.View>
 
@@ -966,9 +965,9 @@ const styles = StyleSheet.create({
   upcomingMeta: { fontSize: 12, color: C.sub },
   miniCallBtn: { padding: 6 },
   // FAB
-  fabWrap: { position: 'absolute', bottom: 24, right: 20, boxShadow: '0px 4px 20px rgba(46,125,50,0.28)' },
-  fab: { backgroundColor: C.primary, borderRadius: 28, paddingHorizontal: 14, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  fabIcon: { fontSize: 13, color: '#fff', fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
+  fabWrap: { position: 'absolute', bottom: 24, right: 20, boxShadow: '0px 4px 16px rgba(46,125,50,0.38)' },
+  fab: { width: 56, height: 56, borderRadius: 28, backgroundColor: C.primary, justifyContent: 'center', alignItems: 'center' },
+  fabIcon: { fontSize: 30, color: '#fff', lineHeight: 34 },
   fabLabel: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#fff' },
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },

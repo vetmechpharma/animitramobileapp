@@ -365,7 +365,9 @@ async def login(data: LoginRequest):
     trial_start = user.get("trial_start_date") or user.get("created_at")
     if trial_start is None:
         trial_start = datetime.now(timezone.utc)
-    if hasattr(trial_start, 'tzinfo') and trial_start.tzinfo is None:
+    if not isinstance(trial_start, datetime):
+        trial_start = datetime.now(timezone.utc)
+    if trial_start.tzinfo is None:
         trial_start = trial_start.replace(tzinfo=timezone.utc)
     days_elapsed = (datetime.now(timezone.utc) - trial_start).days
     trial_days_left = max(0, 7 - days_elapsed)
@@ -566,7 +568,7 @@ async def forward_case(case_id: str, data: ForwardCaseRequest, user=Depends(get_
     case = await db.cases.find_one({"_id": ObjectId(case_id), "vet_id": user["id"]})
     if not case:
         raise HTTPException(404, "Case not found")
-    target = await db.users.find_one({"mobile": data.to_mobile, "is_activated": True})
+    target = await db.users.find_one({"mobile": data.to_mobile, "is_suspended": {"$ne": True}, "role": "vet"})
     if not target:
         raise HTTPException(404, "No registered Animitra vet found with this mobile number")
     target_id = str(target["_id"])
@@ -601,7 +603,32 @@ async def list_cases(status: Optional[str] = None, skip: int = 0, limit: int = 5
 
 # ─────────────────────────── ledger ───────────────────────────────────────────
 
-@api_router.get("/ledger/outstanding")
+@api_router.delete("/cases/{case_id}")
+async def delete_case(case_id: str, user=Depends(get_current_user)):
+    result = await db.cases.delete_one({"_id": ObjectId(case_id), "vet_id": user["id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(404, "Case not found")
+    return {"success": True}
+
+
+@api_router.delete("/users/me")
+async def delete_my_account(user=Depends(get_current_user)):
+    """Factory reset — delete all user data. Admin-deleted users can re-register."""
+    uid = user["id"]
+    await db.cases.delete_many({"vet_id": uid})
+    await db.payment_submissions.delete_many({"user_id": uid})
+    # Free up their coupon code so it can't be reused (already activated = stays used)
+    await db.users.delete_one({"_id": ObjectId(uid)})
+    return {"success": True, "message": "All data deleted successfully"}
+
+
+@api_router.post("/admin/users/{uid}/delete")
+async def admin_delete_user(uid: str, user=Depends(get_admin_user)):
+    """Admin deletes a user — their mobile is freed for re-registration."""
+    await db.cases.delete_many({"vet_id": uid})
+    await db.payment_submissions.delete_many({"user_id": uid})
+    await db.users.delete_one({"_id": ObjectId(uid)})
+    return {"success": True}
 async def outstanding(period: str = "all", user=Depends(get_current_user)):
     query: dict = {
         "vet_id": user["id"], "status": "closed",

@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { AuthProvider } from '../contexts/AuthContext';
 import { useEffect } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   useFonts,
   Inter_400Regular,
@@ -31,13 +32,15 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
 
   return (
-    <AuthProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="register" />
-        <Stack.Screen name="activate" />
-        <Stack.Screen name="(tabs)" />
-      </Stack>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="register" />
+          <Stack.Screen name="activate" />
+          <Stack.Screen name="(tabs)" />
+        </Stack>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
