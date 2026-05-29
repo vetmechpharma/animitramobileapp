@@ -503,6 +503,9 @@ async def farmer_suggest(mobile: str = "", user=Depends(get_current_user)):
     names = [k.replace('_', '.') for k, _ in sorted(names_raw.items(), key=lambda x: x[1], reverse=True) if k]
     villages = [k.replace('_', '.') for k, _ in sorted(villages_raw.items(), key=lambda x: x[1], reverse=True) if k and k != '_blank']
     return {"names": names[:5], "villages": villages[:5]}
+
+
+@api_router.post("/cases/quick-add")
 async def quick_add_case(data: QuickCaseRequest, user=Depends(get_current_user)):
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     visit_date = parse_date(data.visit_date) or today_start
@@ -714,6 +717,7 @@ async def admin_delete_user(uid: str, user=Depends(get_admin_user)):
     await db.payment_submissions.delete_many({"user_id": uid})
     await db.users.delete_one({"_id": ObjectId(uid)})
     return {"success": True}
+@api_router.get("/ledger/outstanding")
 async def outstanding(period: str = "all", user=Depends(get_current_user)):
     query: dict = {
         "vet_id": user["id"], "status": "closed",
@@ -954,6 +958,47 @@ async def admin_users(user=Depends(get_admin_user)):
     return {"total": len(users), "users": users}
 
 
+@api_router.get("/forward-history")
+async def forward_history(user=Depends(get_current_user)):
+    """List of doctors this vet has forwarded cases to before."""
+    pipeline = [
+        {"$match": {"vet_id": user["id"], "status": "forwarded", "forwarded_to_name": {"$ne": ""}}},
+        {"$group": {"_id": "$forwarded_to_name", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+    ]
+    results = await db.cases.aggregate(pipeline).to_list(20)
+    # Try to find mobile numbers for these doctors
+    doctors = []
+    for r in results:
+        doc_name = r["_id"]
+        # Find the case to get the target vet's mobile
+        sample_case = await db.cases.find_one({"vet_id": user["id"], "forwarded_to_name": doc_name})
+        # Find the vet by their name
+        target_vet = await db.users.find_one({"name": doc_name, "role": "vet"})
+        doctors.append({
+            "name": doc_name,
+            "mobile": target_vet["mobile"] if target_vet else "",
+            "forward_count": r["count"],
+        })
+    return {"doctors": doctors}
+
+
+@api_router.put("/users/me/profile")
+async def update_profile(user=Depends(get_current_user)):
+    """Placeholder — use POST with JSON body."""
+    raise HTTPException(405, "Use POST method")
+
+
+@api_router.post("/users/me/profile")
+async def update_my_profile(data: dict, user=Depends(get_current_user)):
+    """Update current user's profile fields."""
+    allowed = {"name", "reg_no", "state", "district", "taluk", "profile_photo"}
+    update = {k: v for k, v in data.items() if k in allowed}
+    if not update:
+        raise HTTPException(400, "No valid fields to update")
+    update["updated_at"] = datetime.now(timezone.utc)
+    await db.users.update_one({"_id": ObjectId(user["id"])}, {"$set": update})
+    return {"success": True}
 @api_router.post("/admin/users/{uid}/reset-password")
 async def admin_reset_password(uid: str, user=Depends(get_admin_user)):
     """Generate new random password for a user and return it to admin."""
@@ -976,6 +1021,7 @@ async def change_my_password(data: dict, user=Depends(get_current_user)):
         raise HTTPException(400, "Current password is incorrect")
     await db.users.update_one({"_id": ObjectId(user["id"])}, {"$set": {"password_hash": hash_password(new_pwd)}})
     return {"success": True}
+@api_router.post("/admin/users/{uid}/activate")
 async def admin_activate_user(uid: str, user=Depends(get_admin_user)):
     """Admin directly activates a user - auto-picks an unused coupon."""
     target = await db.users.find_one({"_id": ObjectId(uid)})
@@ -1002,6 +1048,7 @@ async def admin_activate_user(uid: str, user=Depends(get_admin_user)):
     }})
     return {"success": True, "coupon_used": coupon["code"],
             "message": f"User activated with coupon {coupon['code']}"}
+@api_router.post("/admin/users/{uid}/suspend")
 async def admin_suspend(uid: str, data: SuspendRequest, user=Depends(get_admin_user)):
     await db.users.update_one({"_id": ObjectId(uid)},
         {"$set": {"is_suspended": True, "suspend_reason": data.reason or "Suspended by admin"}})
@@ -1111,6 +1158,7 @@ async def active_banner(user=Depends(get_current_user)):
         "id": str(banner["_id"]), "title": banner["title"],
         "image_url": banner["image_url"], "link_url": banner["link_url"],
     }}
+@api_router.get("/admin/analytics/top-performers")
 async def top_performers(user=Depends(get_admin_user)):
     vets = []
     async for u in db.users.find({"role": "vet"}).sort("created_at", -1):

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet ScrollView,
+  View, Text, StyleSheet, ScrollView,
   TouchableOpacity, ActivityIndicator, RefreshControl,
   Dimensions} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -171,7 +171,7 @@ export default function ReportsScreen() {
           </>
         )}
       </ScrollView>
-    </>
+    </SafeAreaView>
   );
 }
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet ScrollView, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -152,7 +152,7 @@ export default function AboutScreen() {
           <Text style={s.footerText}>Made with ❤️ for Indian Veterinarians</Text>
         </View>
       </ScrollView>
-    </>
+    </SafeAreaView>
   );
 }
 

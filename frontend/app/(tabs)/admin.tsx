@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet ScrollView, FlatList,
+  View, Text, StyleSheet, ScrollView, FlatList,
   TouchableOpacity, ActivityIndicator, Alert, RefreshControl,
   TextInput, Modal, Platform, Share, Image} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -53,6 +53,8 @@ export default function AdminScreen() {
   // Suspend modal
   const [suspendUser, setSuspendUser] = useState<any>(null);
   const [suspendReason, setSuspendReason] = useState('');
+  // Reset password result — copyable modal
+  const [resetPwdResult, setResetPwdResult] = useState<{ name: string; mobile: string; password: string } | null>(null);
 
   useEffect(() => { fetchData(); }, [tab]);
 
@@ -267,7 +269,7 @@ export default function AdminScreen() {
                         <TouchableOpacity testID={`reset-pwd-${u.id}`}
                           style={[s.suspendBtn, { backgroundColor: '#FFF3E0', flex: 1, marginRight: u.is_suspended ? 0 : 8 }]}
                           onPress={() => {
-                            Alert.alert('Reset Password', `Reset password for ${u.name}?\n\nA new random password will be generated.`,
+                            Alert.alert('Reset Password', `Reset password for ${u.name}?\n\nA new password will be generated.`,
                               [
                                 { text: 'Cancel', style: 'cancel' },
                                 { text: 'Reset', onPress: async () => {
@@ -275,7 +277,8 @@ export default function AdminScreen() {
                                     const r = await fetch(`${BACKEND_URL}/api/admin/users/${u.id}/reset-password`, { method: 'POST', headers: h });
                                     const d = await r.json();
                                     if (!r.ok) throw new Error(d.detail || 'Failed');
-                                    Alert.alert('🔑 New Password', `Name: ${u.name}\nMobile: ${u.mobile}\nNew Password: ${d.new_password}\n\nShare this with the user.`, [{ text: 'OK' }]);
+                                    // Show in copyable modal
+                                    setResetPwdResult({ name: u.name, mobile: u.mobile, password: d.new_password });
                                   } catch (e: any) { Alert.alert('Error', e.message); }
                                 }},
                               ]
@@ -560,7 +563,49 @@ export default function AdminScreen() {
         )}
       </ScrollView>
 
-      {/* Suspend Modal */}
+      {/* Copyable Reset Password Result Modal */}
+      <Modal visible={!!resetPwdResult} transparent animationType="slide" onRequestClose={() => setResetPwdResult(null)}>
+        <View style={s.overlay}>
+          <View style={s.suspendSheet}>
+            <View style={s.handle} />
+            <Text style={[s.suspendTitle, { color: C.primary }]}>🔑 Password Reset</Text>
+            <Text style={s.suspendLabel}>NAME</Text>
+            <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 15, color: C.text, marginBottom: 8 }}>{resetPwdResult?.name}</Text>
+            <Text style={s.suspendLabel}>MOBILE</Text>
+            <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 14, color: C.text, marginBottom: 8 }}>{resetPwdResult?.mobile}</Text>
+            <Text style={s.suspendLabel}>NEW PASSWORD — Share with user, they can login now:</Text>
+            <TextInput
+              testID="new-password-display"
+              style={[s.suspendInput, { height: 52, fontFamily: 'Inter_800ExtraBold', fontSize: 22, textAlign: 'center', letterSpacing: 4, color: C.primary, backgroundColor: C.secondary }]}
+              value={resetPwdResult?.password}
+              editable={false}
+              selectTextOnFocus
+            />
+            <View style={{ backgroundColor: '#FFF8E1', borderRadius: 10, padding: 10, marginTop: 8 }}>
+              <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: C.warning }}>
+                💡 Long press the password above to copy · Share via WhatsApp/SMS to the user
+              </Text>
+            </View>
+            <View style={s.suspendBtns}>
+              <TouchableOpacity style={s.cancelBtn} onPress={() => setResetPwdResult(null)}>
+                <Text style={s.cancelBtnText}>Close</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.confirmSuspendBtn, { backgroundColor: C.primary }]}
+                onPress={async () => {
+                  const { Share: RNShare } = require('react-native');
+                  try {
+                    await RNShare.share({
+                      message: `ANIMitraVET Login\nMobile: ${resetPwdResult?.mobile}\nNew Password: ${resetPwdResult?.password}\n\nDownload: https://app.vetmechpharma.in`,
+                      title: 'ANIMitraVET Login Details',
+                    });
+                  } catch (e) {}
+                }}>
+                <Text style={s.confirmSuspendText}>📤 Share via WhatsApp</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       <Modal visible={!!suspendUser} transparent animationType="slide" onRequestClose={() => setSuspendUser(null)}>
         <View style={s.overlay}>
           <View style={s.suspendSheet}>
@@ -590,7 +635,7 @@ export default function AdminScreen() {
           </View>
         </View>
       </Modal>
-    </>
+    </SafeAreaView>
   );
 }
 

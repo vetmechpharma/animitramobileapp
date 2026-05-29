@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet ScrollView,
+  View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Alert, useWindowDimensions, Linking, Share} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -195,7 +195,7 @@ export default function MoreScreen() {
           <Text style={s.footerCopy}>© 2026 Animitra. All rights reserved.</Text>
         </View>
       </ScrollView>
-    </>
+    </SafeAreaView>
   );
 }
 

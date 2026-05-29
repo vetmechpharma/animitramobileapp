@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  View, Text, StyleSheet ScrollView,
+  View, Text, StyleSheet, ScrollView,
   ActivityIndicator, TouchableOpacity, RefreshControl, Alert,
   Modal, TextInput, KeyboardAvoidingView, Platform, Linking,
   Animated, FlatList} from 'react-native';
@@ -952,7 +952,7 @@ export default function DashboardScreen() {
           backendUrl={BACKEND_URL}
         />
       )}
-    </>
+    </SafeAreaView>
   );
 }
 

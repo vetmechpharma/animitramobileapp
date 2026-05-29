@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet FlatList,
+  View, Text, StyleSheet, FlatList,
   TouchableOpacity, ActivityIndicator, RefreshControl,
   Alert, Modal, TextInput, ScrollView, Platform, Linking} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -308,7 +308,7 @@ export default function LedgerScreen() {
           </View>
         </View>
       </Modal>
-    </>
+    </SafeAreaView>
   );
 }
 
