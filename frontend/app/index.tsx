@@ -17,6 +17,7 @@ const DEMO_PASSWORD = 'Demo@123';
 const LOGO = require('../assets/images/animitra-logo.png');
 
 export default function LoginScreen() {
+  const router = useRouter();
   const { login, user, isLoading } = useAuth();
   const insets = useSafeAreaInsets();
   const [mobile, setMobile] = useState('');
