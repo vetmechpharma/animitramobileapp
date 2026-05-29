@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, StyleSheet ScrollView, TouchableOpacity, Linking } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 const C = {
   primary: '#2E7D32', bg: '#F6FBF6', surface: '#FFFFFF', fill: '#EDF7EE',
-  secondary: '#E8F5E9', text: '#0A1F10', sub: '#5A7060', border: '#D4EAD6',
-};
+  secondary: '#E8F5E9', text: '#0A1F10', sub: '#5A7060', border: '#D4EAD6'};
 
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <View style={s.section}>
@@ -17,7 +17,7 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
 export default function AboutScreen() {
   const router = useRouter();
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={["top","left","right"]}>
       {/* Back Header */}
       <View style={s.backHeader}>
         <TouchableOpacity testID="about-back-btn" style={s.backBtn} onPress={() => router.back()}>
@@ -152,7 +152,7 @@ export default function AboutScreen() {
           <Text style={s.footerText}>Made with ❤️ for Indian Veterinarians</Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </>
   );
 }
 
@@ -188,5 +188,4 @@ const s = StyleSheet.create({
   contactLabel: { fontSize: 12, color: C.sub },
   contactValue: { fontSize: 13, fontWeight: '600', fontFamily: 'Inter_600SemiBold', color: C.text },
   footer: { alignItems: 'center', paddingVertical: 24, gap: 4 },
-  footerText: { fontSize: 13, color: C.sub },
-});
+  footerText: { fontSize: 13, color: C.sub }});

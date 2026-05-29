@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, FlatList,
+  View, Text, StyleSheet FlatList,
   TouchableOpacity, ActivityIndicator, RefreshControl,
-  Alert, Modal, TextInput, ScrollView, Platform, Linking,
-} from 'react-native';
+  Alert, Modal, TextInput, ScrollView, Platform, Linking} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
@@ -12,8 +12,7 @@ const PAYMENT_MODES = ['Cash', 'GPay', 'Online', 'Cheque', 'Other'];
 const C = {
   primary: '#2E7D32', bg: '#F6FBF6', surface: '#FFFFFF', fill: '#EDF7EE',
   secondary: '#E8F5E9', text: '#0A1F10', sub: '#5A7060', border: '#D4EAD6',
-  error: '#C62828', warning: '#E65100', blue: '#1565C0',
-};
+  error: '#C62828', warning: '#E65100', blue: '#1565C0'};
 
 const PERIODS = [
   { key: 'all', label: 'All Time' },
@@ -88,9 +87,7 @@ export default function LedgerScreen() {
           mobile: collectFarmer.mobile,
           owner_name: collectFarmer.owner_name,
           amount: amount,
-          payment_mode: collectMode,
-        }),
-      });
+          payment_mode: collectMode})});
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Failed');
       setCollectFarmer(null);
@@ -178,7 +175,7 @@ export default function LedgerScreen() {
   };
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={["top","left","right"]}>
       {/* Header */}
       <View style={s.header}>
         <Text style={s.headerTitle}>💳 Payment Ledger</Text>
@@ -311,7 +308,7 @@ export default function LedgerScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </>
   );
 }
 
@@ -324,8 +321,7 @@ const s = StyleSheet.create({
   // Total banner
   totalBanner: {
     marginHorizontal: 16, marginVertical: 12, backgroundColor: C.error,
-    borderRadius: 20, padding: 14, flexDirection: 'row', alignItems: 'center',
-  },
+    borderRadius: 20, padding: 14, flexDirection: 'row', alignItems: 'center'},
   totalLeft: { flex: 1 },
   totalAmount: { fontSize: 14, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: '#fff' },
   totalLabel: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
@@ -402,5 +398,4 @@ const s = StyleSheet.create({
   distributionNote: { backgroundColor: '#E3F2FD', borderRadius: 10, padding: 10, marginTop: 10 },
   distributionText: { fontSize: 13, color: C.blue },
   saveBtn: { height: 46, backgroundColor: C.primary, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginTop: 14 },
-  saveBtnText: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#fff' },
-});
+  saveBtnText: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#fff' }});

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView,
+  View, Text, StyleSheet ScrollView,
   TouchableOpacity, ActivityIndicator, RefreshControl,
-  Dimensions,
-} from 'react-native';
+  Dimensions} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -12,8 +12,7 @@ const { width } = Dimensions.get('window');
 
 const C = {
   primary: '#2E7D32', bg: '#F6FBF6', surface: '#FFFFFF', fill: '#EDF7EE',
-  secondary: '#E8F5E9', text: '#0A1F10', sub: '#5A7060', border: '#D4EAD6',
-};
+  secondary: '#E8F5E9', text: '#0A1F10', sub: '#5A7060', border: '#D4EAD6'};
 
 const PERIODS = [
   { key: 'day', label: 'Today' },
@@ -72,7 +71,7 @@ export default function ReportsScreen() {
   const maxCount = data.length > 0 ? Math.max(...data.map((d: any) => d.count || 1)) : 1;
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={["top","left","right"]}>
       {/* Back Header */}
       <View style={s.backHeader}>
         <TouchableOpacity testID="reports-back-btn" style={s.backBtn} onPress={() => router.back()}>
@@ -172,7 +171,7 @@ export default function ReportsScreen() {
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </>
   );
 }
 
@@ -181,8 +180,7 @@ const s = StyleSheet.create({
   backHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: C.surface, paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: C.border,
-  },
+    borderBottomWidth: 1, borderBottomColor: C.border},
   backBtn: { paddingHorizontal: 4, paddingVertical: 4, minWidth: 60 },
   backBtnText: { fontSize: 14, color: C.primary, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   backTitle: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text },
@@ -203,8 +201,7 @@ const s = StyleSheet.create({
   emptyEmoji: { fontSize: 48, marginBottom: 12 },
   emptyText: { fontSize: 14, color: C.sub },
   summaryCard: {
-    backgroundColor: C.primary, borderRadius: 20, padding: 14, alignItems: 'center', marginBottom: 16,
-  },
+    backgroundColor: C.primary, borderRadius: 20, padding: 14, alignItems: 'center', marginBottom: 16},
   summaryNum: { fontSize: 40, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: '#fff' },
   summaryLabel: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 4 },
   barCard: { backgroundColor: C.surface, borderRadius: 14, padding: 14, marginBottom: 10 },
@@ -222,5 +219,4 @@ const s = StyleSheet.create({
   forwardMeta: { fontSize: 12, color: C.sub, marginTop: 2 },
   forwardVillage: { fontSize: 12, color: C.sub, marginTop: 1 },
   forwardedTo: { fontSize: 12, color: '#1565C0', fontWeight: '600', fontFamily: 'Inter_600SemiBold', marginTop: 4 },
-  forwardDate: { fontSize: 13, color: C.primary, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
-});
+  forwardDate: { fontSize: 13, color: C.primary, fontWeight: '600', fontFamily: 'Inter_600SemiBold' }});

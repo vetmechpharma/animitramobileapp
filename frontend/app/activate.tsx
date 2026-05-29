@@ -1,9 +1,8 @@
 import React, { useState, useRef } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  SafeAreaView, KeyboardAvoidingView, Platform, ScrollView,
-  ActivityIndicator, Alert,
-} from 'react-native';
+  View, Text, TextInput, TouchableOpacity, StyleSheet KeyboardAvoidingView, Platform, ScrollView,
+  ActivityIndicator, Alert} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import QRCode from 'react-native-qrcode-svg';
@@ -87,8 +86,7 @@ export default function ActivateScreen() {
       const res = await fetch(`${BACKEND_URL}/api/subscription/submit-utr`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ utr_number: utrNumber.trim(), mobile: '', name: name || 'Vet' }),
-      });
+        body: JSON.stringify({ utr_number: utrNumber.trim(), mobile: '', name: name || 'Vet' })});
       if (!res.ok) throw new Error('Submission failed');
       setUtrSubmitted(true);
     } catch (e: any) {
@@ -101,7 +99,7 @@ export default function ActivateScreen() {
   const fullCode = code.join('');
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["top","left","right"]}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {/* Logo */}
@@ -212,7 +210,7 @@ export default function ActivateScreen() {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </>
   );
 }
 
@@ -220,8 +218,7 @@ const C = {
   primary: '#2E7D32', primaryLight: '#4CAF50',
   bg: '#F6FBF6', surface: '#FFFFFF', surfaceSecondary: '#E8F5E9',
   fill: '#EDF7EE', fillFocus: '#E0F0E1',
-  textPrimary: '#0A1F10', textSecondary: '#5A7060', border: '#D4EAD6',
-};
+  textPrimary: '#0A1F10', textSecondary: '#5A7060', border: '#D4EAD6'};
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
@@ -238,8 +235,7 @@ const styles = StyleSheet.create({
   toggleTextActive: { color: C.primary },
   card: {
     backgroundColor: C.surface, borderRadius: 28, padding: 16,
-    boxShadow: '0px 3px 14px rgba(46,125,50,0.10)', alignItems: 'center',
-  },
+    boxShadow: '0px 3px 14px rgba(46,125,50,0.10)', alignItems: 'center'},
   welcomeEmoji: { fontSize: 48, marginBottom: 12 },
   title: { fontSize: 21, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.textPrimary, textAlign: 'center', marginBottom: 8 },
   subtitle: { fontSize: 14, color: C.textSecondary, textAlign: 'center', lineHeight: 21, marginBottom: 28 },
@@ -247,8 +243,7 @@ const styles = StyleSheet.create({
   otpBox: {
     width: 38, height: 46, borderRadius: 14, backgroundColor: C.fill,
     borderWidth: 1.5, borderColor: '#C8E6C9',
-    fontSize: 14, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.primary, textAlign: 'center',
-  },
+    fontSize: 14, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.primary, textAlign: 'center'},
   otpBoxFilled: { borderColor: C.primaryLight, backgroundColor: C.fillFocus },
   progressRow: { flexDirection: 'row', gap: 8, marginBottom: 6 },
   progressDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.border },
@@ -257,8 +252,7 @@ const styles = StyleSheet.create({
   activateBtn: {
     width: '100%', height: 44, backgroundColor: C.primary, borderRadius: 20,
     justifyContent: 'center', alignItems: 'center', marginTop: 4,
-    boxShadow: '0px 4px 20px rgba(46,125,50,0.28)',
-  },
+    boxShadow: '0px 4px 20px rgba(46,125,50,0.28)'},
   btnDisabled: { opacity: 0.45 },
   activateBtnText: { color: '#fff', fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: 0.3 },
   helpText: { fontSize: 13, color: C.textSecondary, textAlign: 'center', lineHeight: 20, marginTop: 14 },
@@ -280,5 +274,4 @@ const styles = StyleSheet.create({
   utrSuccess: { alignItems: 'center', paddingVertical: 16 },
   utrSuccessEmoji: { fontSize: 44, marginBottom: 10 },
   utrSuccessTitle: { fontSize: 14, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.primary, marginBottom: 8 },
-  utrSuccessText: { fontSize: 14, color: C.textSecondary, textAlign: 'center', lineHeight: 22 },
-});
+  utrSuccessText: { fontSize: 14, color: C.textSecondary, textAlign: 'center', lineHeight: 22 }});

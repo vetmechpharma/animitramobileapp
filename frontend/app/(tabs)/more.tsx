@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, Alert, useWindowDimensions, Linking, Share,
-} from 'react-native';
+  View, Text, StyleSheet ScrollView,
+  TouchableOpacity, Alert, useWindowDimensions, Linking, Share} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -11,8 +11,7 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 const C = {
   primary: '#2E7D32', bg: '#F6FBF6', surface: '#FFFFFF', fill: '#EDF7EE',
   secondary: '#E8F5E9', text: '#0A1F10', sub: '#5A7060', border: '#D4EAD6',
-  error: '#C62828', warning: '#E65100',
-};
+  error: '#C62828', warning: '#E65100'};
 
 interface MenuItem {
   testID: string;
@@ -40,8 +39,7 @@ export default function MoreScreen() {
   const fetchQuickStats = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/dashboard/stats`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+        headers: { Authorization: `Bearer ${token}` }});
       const d = await res.json();
       setTodayCount(d.today_cases || 0);
       setTotalCount(d.total_cases || 0);
@@ -53,21 +51,18 @@ export default function MoreScreen() {
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Logout', style: 'destructive',
-        onPress: async () => { await logout(); router.replace('/'); },
-      },
+        onPress: async () => { await logout(); router.replace('/'); }},
     ]);
   };
 
   const handleExportClients = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/export/my-clients`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+        headers: { Authorization: `Bearer ${token}` }});
       const csv = await res.text();
       await Share.share({
         message: csv,
-        title: `${user?.name} - Client Data Export`,
-      });
+        title: `${user?.name} - Client Data Export`});
     } catch (e) {
       Alert.alert('Error', 'Could not export data. Please try again.');
     }
@@ -85,15 +80,13 @@ export default function MoreScreen() {
             try {
               await fetch(`${BACKEND_URL}/api/users/me`, {
                 method: 'DELETE',
-                headers: { Authorization: `Bearer ${token}` },
-              });
+                headers: { Authorization: `Bearer ${token}` }});
               await logout();
               router.replace('/');
             } catch (e) {
               Alert.alert('Error', 'Could not delete account. Please try again.');
             }
-          },
-        },
+          }},
       ]
     );
   };
@@ -105,14 +98,12 @@ export default function MoreScreen() {
         { testID: 'more-reports', emoji: '📈', label: 'Reports & Analytics', sub: 'Animal-wise, visit-wise, forwards', route: '/(tabs)/reports' },
         { testID: 'more-export', emoji: '📊', label: 'Export My Clients', sub: 'Download client data as CSV, share WhatsApp', onPress: handleExportClients },
         { testID: 'more-about', emoji: 'ℹ️', label: 'About ANIMitraVET', sub: 'Features, T&C, support contact', route: '/(tabs)/about' },
-      ],
-    },
+      ]},
     ...(isAdmin ? [{
       title: 'ADMIN',
       items: [
         { testID: 'more-admin', emoji: '⚙️', label: 'Admin Panel', sub: 'Users, coupons, payments, export', route: '/(tabs)/admin', admin: true },
-      ],
-    }] : []),
+      ]}] : []),
     {
       title: 'ACCOUNT',
       items: [
@@ -120,12 +111,11 @@ export default function MoreScreen() {
         { testID: 'more-logout', emoji: '🚪', label: 'Logout', sub: 'Sign out from this device', onPress: handleLogout, danger: true },
         // Delete Account — only for regular vets, NOT for admin
         ...(!isAdmin ? [{ testID: 'more-delete-account', emoji: '🗑️', label: 'Delete Account', sub: 'Delete all your data permanently', onPress: handleDeleteAccount, danger: true } as MenuItem] : []),
-      ],
-    },
+      ]},
   ];
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={["top","left","right"]}>
       <ScrollView contentContainerStyle={[s.content, { paddingHorizontal: Math.max(16, (width - 500) / 2) }]}
         showsVerticalScrollIndicator={false}>
 
@@ -205,7 +195,7 @@ export default function MoreScreen() {
           <Text style={s.footerCopy}>© 2026 Animitra. All rights reserved.</Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </>
   );
 }
 
@@ -215,12 +205,10 @@ const s = StyleSheet.create({
   // Profile card
   profileCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: C.primary, borderRadius: 24, padding: 14, marginBottom: 12,
-  },
+    backgroundColor: C.primary, borderRadius: 24, padding: 14, marginBottom: 12},
   avatarCircle: {
     width: 56, height: 44, borderRadius: 28,
-    backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center',
-  },
+    backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center'},
   avatarEmoji: { fontSize: 13 },
   docName: { fontSize: 13, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: '#fff' },
   docReg: { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
@@ -230,8 +218,7 @@ const s = StyleSheet.create({
   // Stats strip
   statsStrip: {
     flexDirection: 'row', backgroundColor: C.surface, borderRadius: 16, padding: 16,
-    marginBottom: 20, alignItems: 'center', justifyContent: 'space-around',
-  },
+    marginBottom: 20, alignItems: 'center', justifyContent: 'space-around'},
   statPill: { alignItems: 'center', flex: 1 },
   statPillNum: { fontSize: 13, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.primary },
   statPillLabel: { fontSize: 11, color: C.sub, marginTop: 2 },
@@ -241,14 +228,12 @@ const s = StyleSheet.create({
   sectionLabel: { fontSize: 11, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.sub, letterSpacing: 1, marginBottom: 8, marginLeft: 4 },
   sectionCard: {
     backgroundColor: C.surface, borderRadius: 18, overflow: 'hidden',
-    boxShadow: '0px 2px 10px rgba(46,125,50,0.07)',
-  },
+    boxShadow: '0px 2px 10px rgba(46,125,50,0.07)'},
   menuItem: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 14 },
   menuItemBorder: { borderBottomWidth: 1, borderBottomColor: C.border },
   menuIconWrap: {
     width: 42, height: 42, borderRadius: 12, backgroundColor: C.fill,
-    justifyContent: 'center', alignItems: 'center',
-  },
+    justifyContent: 'center', alignItems: 'center'},
   menuIconAdmin: { backgroundColor: '#E3F2FD' },
   menuIconDanger: { backgroundColor: '#FFEBEE' },
   menuEmoji: { fontSize: 14 },
@@ -262,5 +247,4 @@ const s = StyleSheet.create({
   footerEmoji: { fontSize: 13, marginBottom: 4 },
   footerName: { fontSize: 14, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.primary },
   footerVersion: { fontSize: 12, color: C.sub },
-  footerCopy: { fontSize: 11, color: C.sub },
-});
+  footerCopy: { fontSize: 11, color: C.sub }});

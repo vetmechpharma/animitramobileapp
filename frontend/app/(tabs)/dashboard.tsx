@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView,
+  View, Text, StyleSheet ScrollView,
   ActivityIndicator, TouchableOpacity, RefreshControl, Alert,
   Modal, TextInput, KeyboardAvoidingView, Platform, Linking,
-  Animated, FlatList,
-} from 'react-native';
+  Animated, FlatList} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import * as Contacts from 'expo-contacts';
@@ -22,8 +22,7 @@ const C = {
   bg: '#F4F9F4', surface: '#FFFFFF', fill: '#EBF5EC', fillDark: '#D6EDD8',
   text: '#1A2E1C', sub: '#4B6352', muted: '#8FA891',
   border: '#D0E8D2', borderLight: '#E8F5EA',
-  warning: '#E65100', error: '#C62828', blue: '#1565C0',
-};
+  warning: '#E65100', error: '#C62828', blue: '#1565C0'};
 
 // Inter font helpers
 const FN = {
@@ -31,8 +30,7 @@ const FN = {
   medium: 'Inter_500Medium',
   semiBold: 'Inter_600SemiBold',
   bold: 'Inter_700Bold',
-  extraBold: 'Inter_800ExtraBold',
-};
+  extraBold: 'Inter_800ExtraBold'};
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -263,8 +261,7 @@ export default function DashboardScreen() {
       if (status !== 'granted') { Alert.alert('Permission Denied', 'Allow contacts access to pick a contact.'); return; }
       const { data } = await Contacts.getContactsAsync({ fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers] });
       const items = data.filter(c => c.phoneNumbers?.length).slice(0, 200).map(c => ({
-        name: c.name || 'Unknown', phone: c.phoneNumbers![0].number?.replace(/[\s\-\(\)]/g, '') || '',
-      }));
+        name: c.name || 'Unknown', phone: c.phoneNumbers![0].number?.replace(/[\s\-\(\)]/g, '') || ''}));
       setContactList(items); setContactSearch(''); setShowContactPicker(true);
     } catch (e) { Alert.alert('Error', 'Could not access contacts'); }
   };
@@ -280,8 +277,7 @@ export default function DashboardScreen() {
       const res = await fetch(`${BACKEND_URL}/api/cases/quick-add`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ...quickForm, visit_date: visitDateStr, opening_balance: parseFloat(quickForm.opening_balance) || 0 }),
-      });
+        body: JSON.stringify({ ...quickForm, visit_date: visitDateStr, opening_balance: parseFloat(quickForm.opening_balance) || 0 })});
       const d = await res.json();
       if (!res.ok) throw new Error(d.detail || 'Failed');
       setShowQuickAdd(false); fetchAll();
@@ -329,9 +325,7 @@ export default function DashboardScreen() {
           payment_mode: payment_status !== 'not_paid' ? payment_mode : null,
           paid_amount: payment_status === 'partial' ? parseFloat(paid_amount) || 0 : (payment_status === 'full' ? parseFloat(amount) || 0 : 0),
           follow_up_date: fuStr,
-          follow_up_reason: showFollowUp ? followUpReason.trim() || 'Follow-up' : '',
-        }),
-      });
+          follow_up_reason: showFollowUp ? followUpReason.trim() || 'Follow-up' : ''})});
       if (!res.ok) throw new Error('Failed to close case');
       setCloseCase(null); fetchAll();
 
@@ -372,7 +366,7 @@ export default function DashboardScreen() {
   const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["top","left","right"]}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
         showsVerticalScrollIndicator={false}>
@@ -630,8 +624,7 @@ export default function DashboardScreen() {
                         setQuickForm(f => ({
                           ...f,
                           owner_name: f.owner_name || globalSuggestion.name,
-                          village_name: f.village_name || globalSuggestion.village,
-                        }));
+                          village_name: f.village_name || globalSuggestion.village}));
                         setAutoFilledBanner(`✅ Applied: ${globalSuggestion.name}${globalSuggestion.village ? ` · ${globalSuggestion.village}` : ''}`);
                         setGlobalSuggestion(null);
                       }
@@ -959,7 +952,7 @@ export default function DashboardScreen() {
           backendUrl={BACKEND_URL}
         />
       )}
-    </SafeAreaView>
+    </>
   );
 }
 
@@ -1053,27 +1046,23 @@ const styles = StyleSheet.create({
   clipboardBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: '#E8F4FD', borderRadius: 12, padding: 12, marginBottom: 12,
-    borderWidth: 1.5, borderColor: '#90CAF9',
-  },
+    borderWidth: 1.5, borderColor: '#90CAF9'},
   clipboardEmoji: { fontSize: 14 },
   clipboardText: { fontSize: 12, color: '#1565C0', fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   clipboardNumber: { fontSize: 14, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: '#0D47A1' },
   clipboardUse: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#1565C0', paddingHorizontal: 4 },
   farmerDropdown: {
     backgroundColor: C.surface, borderRadius: 12, borderWidth: 1, borderColor: C.border,
-    marginTop: -6, marginBottom: 6, overflow: 'hidden',
-  },
+    marginTop: -6, marginBottom: 6, overflow: 'hidden'},
   farmerDropdownItem: {
     flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14,
-    borderBottomWidth: 1, borderBottomColor: '#F0F7F0',
-  },
+    borderBottomWidth: 1, borderBottomColor: '#F0F7F0'},
   farmerSugName: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text },
   farmerSugMeta: { fontSize: 12, color: C.sub, marginTop: 2 },
   farmerSugArrow: { fontSize: 14, color: C.primary },
   autoFilledBanner: {
     backgroundColor: '#E8F5E9', borderRadius: 10, padding: 10, marginBottom: 8,
-    borderLeftWidth: 3, borderLeftColor: C.primary,
-  },
+    borderLeftWidth: 3, borderLeftColor: C.primary},
   autoFilledText: { fontSize: 13, color: C.primary, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   rowInputs: { flexDirection: 'row' },
   pickerBtn: { height: 44, borderRadius: 14, backgroundColor: C.fill, paddingHorizontal: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -1116,5 +1105,4 @@ const styles = StyleSheet.create({
   contactAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: C.secondary, justifyContent: 'center', alignItems: 'center' },
   contactAvatarText: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.primary },
   contactName: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold', color: C.text },
-  contactPhone: { fontSize: 12, color: C.sub },
-});
+  contactPhone: { fontSize: 12, color: C.sub }});

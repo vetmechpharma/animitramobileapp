@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView, FlatList,
+  View, Text, StyleSheet ScrollView, FlatList,
   TouchableOpacity, ActivityIndicator, Alert, RefreshControl,
-  TextInput, Modal, Platform, Share, Image,
-} from 'react-native';
+  TextInput, Modal, Platform, Share, Image} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
@@ -12,8 +12,7 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 const C = {
   primary: '#2E7D32', bg: '#F6FBF6', surface: '#FFFFFF', fill: '#EDF7EE',
   secondary: '#E8F5E9', text: '#0A1F10', sub: '#5A7060', border: '#D4EAD6',
-  error: '#C62828', warning: '#E65100', blue: '#1565C0',
-};
+  error: '#C62828', warning: '#E65100', blue: '#1565C0'};
 
 const ADMIN_TABS = [
   { key: 'stats', emoji: '📊', label: 'Overview' },
@@ -128,8 +127,7 @@ export default function AdminScreen() {
     try {
       const r = await fetch(`${BACKEND_URL}/api/admin/coupons/generate`, {
         method: 'POST', headers: { ...h, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ count: 100 }),
-      });
+        body: JSON.stringify({ count: 100 })});
       const d = await r.json();
       Alert.alert('✅ Generated', `${d.generated} new coupon codes created`);
       fetchData();
@@ -149,7 +147,7 @@ export default function AdminScreen() {
     : users;
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={["top","left","right"]}>
       {/* Back Header */}
       <View style={s.bkHeader}>
         <TouchableOpacity testID="admin-back-btn" style={s.bkBtn} onPress={() => router.back()}>
@@ -386,8 +384,7 @@ export default function AdminScreen() {
                               base64: true,
                               quality: 0.7,
                               allowsEditing: true,
-                              aspect: [16, 9],
-                            });
+                              aspect: [16, 9]});
                             if (!result.canceled && result.assets[0].base64) {
                               const b64 = `data:image/jpeg;base64,${result.assets[0].base64}`;
                               setNewBanner(n => ({ ...n, image_url: b64 }));
@@ -423,8 +420,7 @@ export default function AdminScreen() {
                               const r = await fetch(`${BACKEND_URL}/api/admin/banners`, {
                                 method: 'POST',
                                 headers: { ...h, 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ ...newBanner, is_active: true }),
-                              });
+                                body: JSON.stringify({ ...newBanner, is_active: true })});
                               if (!r.ok) throw new Error('Failed');
                               setShowAddBanner(false);
                               fetchData();
@@ -459,8 +455,7 @@ export default function AdminScreen() {
                       const csv = await r.text();
                       await Share.share({
                         message: csv,
-                        title: 'Animitra Owner Data Export',
-                      });
+                        title: 'Animitra Owner Data Export'});
                     } catch(e) { Alert.alert('Error', 'Could not export data'); }
                   }}>
                   <Text style={s.exportBtnText}>📤 Export & Share via WhatsApp</Text>
@@ -595,7 +590,7 @@ export default function AdminScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </>
   );
 }
 
@@ -694,5 +689,4 @@ const s = StyleSheet.create({
   cancelBtn: { flex: 1, height: 44, backgroundColor: C.fill, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   cancelBtnText: { fontSize: 13, fontWeight: '600', fontFamily: 'Inter_600SemiBold', color: C.sub },
   confirmSuspendBtn: { flex: 1, height: 44, backgroundColor: C.error, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-  confirmSuspendText: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#fff' },
-});
+  confirmSuspendText: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#fff' }});

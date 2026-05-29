@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  SafeAreaView, KeyboardAvoidingView, Platform, ScrollView,
-  ActivityIndicator, Alert, Modal, FlatList,
-} from 'react-native';
+  View, Text, TextInput, TouchableOpacity, StyleSheet KeyboardAvoidingView, Platform, ScrollView,
+  ActivityIndicator, Alert, Modal, FlatList} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -15,8 +14,7 @@ export default function RegisterScreen() {
 
   const [form, setForm] = useState({
     name: '', reg_no: '', mobile: '', password: '', confirmPassword: '',
-    state: '', district: '', taluk: '',
-  });
+    state: '', district: '', taluk: ''});
   const [states, setStates] = useState<string[]>([]);
   const [districts, setDistricts] = useState<string[]>([]);
   const [taluks, setTaluks] = useState<string[]>([]);
@@ -134,7 +132,7 @@ export default function RegisterScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["top","left","right"]}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {/* Header */}
@@ -328,15 +326,14 @@ export default function RegisterScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
-    </SafeAreaView>
+    </>
   );
 }
 
 const C = {
   primary: '#2E7D32', bg: '#F6FBF6', surface: '#FFFFFF',
   surfaceSecondary: '#E8F5E9', fill: '#EDF7EE', fillFocus: '#E0F0E1',
-  textPrimary: '#0A1F10', textSecondary: '#5A7060', border: '#D4EAD6',
-};
+  textPrimary: '#0A1F10', textSecondary: '#5A7060', border: '#D4EAD6'};
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
@@ -351,21 +348,18 @@ const styles = StyleSheet.create({
   pageSubtitle: { fontSize: 14, color: C.textSecondary, marginTop: 4 },
   card: {
     backgroundColor: C.surface, borderRadius: 28, padding: 16,
-    boxShadow: '0px 3px 14px rgba(46,125,50,0.10)',
-  },
+    boxShadow: '0px 3px 14px rgba(46,125,50,0.10)'},
   sectionTitle: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.textPrimary, marginBottom: 14 },
   inputWrapper: { marginBottom: 14 },
   label: { fontSize: 12, fontWeight: '600', fontFamily: 'Inter_600SemiBold', color: C.textSecondary, marginBottom: 7, letterSpacing: 0.3 },
   input: {
     height: 46, borderRadius: 14, backgroundColor: C.fill,
-    paddingHorizontal: 16, fontSize: 14, color: C.textPrimary,
-  },
+    paddingHorizontal: 16, fontSize: 14, color: C.textPrimary},
   passRow: { flexDirection: 'row', alignItems: 'center' },
   eyeBtn: { position: 'absolute', right: 12, height: 46, justifyContent: 'center', paddingHorizontal: 8 },
   dropdown: {
     height: 46, borderRadius: 14, backgroundColor: C.fill,
-    paddingHorizontal: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-  },
+    paddingHorizontal: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
   dropdownDisabled: { opacity: 0.5 },
   dropdownText: { fontSize: 14, color: C.textPrimary, flex: 1 },
   placeholder: { color: '#9BB89F' },
@@ -373,8 +367,7 @@ const styles = StyleSheet.create({
   registerBtn: {
     height: 44, backgroundColor: C.primary, borderRadius: 20,
     justifyContent: 'center', alignItems: 'center', marginTop: 8,
-    boxShadow: '0px 4px 20px rgba(46,125,50,0.28)',
-  },
+    boxShadow: '0px 4px 20px rgba(46,125,50,0.28)'},
   btnDisabled: { opacity: 0.65 },
   registerBtnText: { color: '#fff', fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: 0.3 },
   loginRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },
@@ -383,15 +376,12 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
   modalSheet: {
     backgroundColor: C.surface, borderTopLeftRadius: 32, borderTopRightRadius: 32,
-    paddingHorizontal: 16, paddingBottom: 36, maxHeight: '78%',
-  },
+    paddingHorizontal: 16, paddingBottom: 36, maxHeight: '78%'},
   modalHandle: { width: 44, height: 4, backgroundColor: '#D0E8D2', borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 16 },
   modalTitle: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.textPrimary, marginBottom: 12, textAlign: 'center' },
   searchInput: {
     height: 44, borderRadius: 14, backgroundColor: C.fill,
-    paddingHorizontal: 16, fontSize: 13, color: C.textPrimary, marginBottom: 8,
-  },
+    paddingHorizontal: 16, fontSize: 13, color: C.textPrimary, marginBottom: 8},
   dropdownList: { flexGrow: 0 },
   dropdownItem: { paddingVertical: 14, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: '#F0F7F0' },
-  dropdownItemText: { fontSize: 13, color: C.textPrimary },
-});
+  dropdownItemText: { fontSize: 13, color: C.textPrimary }});
