@@ -1025,7 +1025,59 @@ async def submit_utr(data: UTRRequest, user=Depends(get_current_user)):
 
 # --------------------------- reports ------------------------------------------
 
-@api_router.get("/reports/animal-type")
+@api_router.get("/reports/earnings-trend")
+async def earnings_trend(period: str = "month", user=Depends(get_current_user)):
+    """Daily/weekly earnings trend for line chart."""
+    now = datetime.now(timezone.utc)
+    if period == "week":
+        days = 7
+        fmt = "%a"  # Mon, Tue...
+    elif period == "year":
+        days = 365
+        fmt = "%b"  # Jan, Feb...
+    else:  # month default
+        days = 30
+        fmt = "%d"  # 01, 02...
+
+    result = []
+    step = max(1, days // 10)  # Max 10 data points
+    for i in range(days, -1, -step):
+        day_start = (now - timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day_start + timedelta(days=step)
+        agg = await db.cases.aggregate([
+            {"$match": {"vet_id": user["id"], "is_paid": True,
+                        "paid_at": {"$gte": day_start, "$lt": day_end}}},
+            {"$group": {"_id": None, "total": {"$sum": "$paid_amount"}, "count": {"$sum": 1}}}
+        ]).to_list(1)
+        result.append({
+            "label": day_start.strftime(fmt),
+            "earnings": round(agg[0]["total"], 0) if agg else 0,
+            "cases": agg[0]["count"] if agg else 0,
+        })
+    return {"period": period, "data": result}
+
+
+@api_router.get("/admin/reports/user-status")
+async def admin_user_status_chart(user=Depends(get_admin_user)):
+    """User status distribution for pie chart."""
+    total = await db.users.count_documents({"role": "vet"})
+    activated = await db.users.count_documents({"role": "vet", "is_activated": True, "is_suspended": {"$ne": True}})
+    trial = await db.users.count_documents({"role": "vet", "is_activated": False, "is_suspended": {"$ne": True}})
+    suspended = await db.users.count_documents({"is_suspended": True})
+
+    # Cases per day (last 7 days)
+    trend = []
+    for i in range(6, -1, -1):
+        day = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=i)
+        count = await db.cases.count_documents({"created_at": {"$gte": day, "$lt": day + timedelta(days=1)}, "is_opening_balance": {"$ne": True}})
+        trend.append({"label": day.strftime("%a"), "count": count})
+
+    return {
+        "status": {"activated": activated, "trial": trial, "suspended": suspended, "total": total},
+        "cases_trend": trend,
+    }
+
+
 async def report_animal_type(period: str = "month", user=Depends(get_current_user)):
     start = get_period_start(period)
     pipeline = [
