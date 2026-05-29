@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
+import { exportAsCSV, exportAsPDF } from '../../utils/exportHelper';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 const C = {
@@ -146,9 +147,20 @@ export default function AdminScreen() {
   };
 
   const handleExportUsers = async () => {
-    Alert.alert('Export Users', 'User data will be available as CSV. Share the export URL with your team.', [
-      { text: 'OK' }
-    ]);
+    try {
+      const r = await fetch(`${BACKEND_URL}/api/admin/export/users`, { headers: h });
+      const csv = await r.text();
+      const lines = csv.trim().split('\n');
+      const headers = lines[0].split(',');
+      const rows = lines.slice(1).map((l: string) => l.split(','));
+      Alert.alert('Export Registered Users', 'Choose format:', [
+        { text: '📊 CSV File', onPress: () => exportAsCSV(csv, `animitra_users_${Date.now()}.csv`, 'Export Users') },
+        { text: '📄 PDF', onPress: () => exportAsPDF(rows, headers, 'Registered Users', `animitra_users_${Date.now()}.pdf`) },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    } catch (e: any) {
+      Alert.alert('Error', 'Could not export users data');
+    }
   };
 
   const filteredUsers = users.filter(u => {
@@ -505,12 +517,17 @@ export default function AdminScreen() {
                     try {
                       const r = await fetch(`${BACKEND_URL}/api/admin/export/owner-data`, {headers: h});
                       const csv = await r.text();
-                      await Share.share({
-                        message: csv,
-                        title: 'ANIMitra VET Owner Data Export'});
+                      const lines = csv.trim().split('\n');
+                      const heads = lines[0].split(',');
+                      const rows = lines.slice(1).map((l: string) => l.split(','));
+                      Alert.alert('Export Owner Data', 'Choose format:', [
+                        { text: '📊 CSV File', onPress: () => exportAsCSV(csv, `animitra_owners_${Date.now()}.csv`, 'Owner Data Export') },
+                        { text: '📄 PDF', onPress: () => exportAsPDF(rows, heads, 'Client Owner Data', `animitra_owners_${Date.now()}.pdf`) },
+                        { text: 'Cancel', style: 'cancel' },
+                      ]);
                     } catch(e) { Alert.alert('Error', 'Could not export data'); }
                   }}>
-                  <Text style={s.exportBtnText}>📤 Export & Share via WhatsApp</Text>
+                  <Text style={s.exportBtnText}>📤 Export Owner Data (CSV / PDF)</Text>
                 </TouchableOpacity>
                 <Text style={[s.countText,{marginTop:12}]}>
                   {perfView === 'cases' ? 'Ranked by Total Cases' : 'Ranked by Total Earnings'}
@@ -641,9 +658,8 @@ export default function AdminScreen() {
               </TouchableOpacity>
               <TouchableOpacity style={[s.confirmSuspendBtn, { backgroundColor: C.primary }]}
                 onPress={async () => {
-                  const { Share: RNShare } = require('react-native');
                   try {
-                    await RNShare.share({
+                    await Share.share({
                       message: `ANIMitra VET Login\nMobile: ${resetPwdResult?.mobile}\nNew Password: ${resetPwdResult?.password}\n\nDownload: https://app.vetmechpharma.in`,
                       title: 'ANIMitra VET Login Details',
                     });

@@ -5,6 +5,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
+import { exportAsCSV, exportAsPDF } from '../../utils/exportHelper';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
@@ -60,9 +61,14 @@ export default function MoreScreen() {
       const res = await fetch(`${BACKEND_URL}/api/export/my-clients`, {
         headers: { Authorization: `Bearer ${token}` }});
       const csv = await res.text();
-      await Share.share({
-        message: csv,
-        title: `${user?.name} - Client Data Export`});
+      const lines = csv.trim().split('\n');
+      const headers = lines[0].split(',');
+      const rows = lines.slice(1).map((l: string) => l.split(','));
+      Alert.alert('Export My Clients', 'Choose export format:', [
+        { text: '📊 CSV File', onPress: () => exportAsCSV(csv, `animitra_clients_${Date.now()}.csv`, 'Export My Clients') },
+        { text: '📄 PDF', onPress: () => exportAsPDF(rows, headers, 'My Client List', `animitra_clients_${Date.now()}.pdf`) },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
     } catch (e) {
       Alert.alert('Error', 'Could not export data. Please try again.');
     }
