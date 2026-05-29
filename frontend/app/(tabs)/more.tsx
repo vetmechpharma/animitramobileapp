@@ -206,7 +206,7 @@ export default function MoreScreen() {
 
         {/* App version */}
         <View style={s.footer}>
-          <Text style={s.footerEmoji}>🐾</Text>
+        <Image source={require('../../assets/images/icon.png')} style={s.footerIcon} resizeMode="contain" />
           <Text style={s.footerName}>ANIMitra VET</Text>
           <Text style={s.footerVersion}>Version 1.0.0 · Veterinary Practice Manager</Text>
           <Text style={s.footerCopy}>© 2026 ANIMitra VET. All rights reserved.</Text>
@@ -261,7 +261,7 @@ const s = StyleSheet.create({
   menuArrow: { fontSize: 13, color: C.sub, fontWeight: '300' },
   // Footer
   footer: { alignItems: 'center', paddingTop: 24, gap: 4 },
-  footerEmoji: { fontSize: 13, marginBottom: 4 },
+  footerIcon: { width: 48, height: 48, borderRadius: 10, marginBottom: 8 },
   footerName: { fontSize: 14, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.primary },
   footerVersion: { fontSize: 12, color: C.sub },
   footerCopy: { fontSize: 11, color: C.sub }});

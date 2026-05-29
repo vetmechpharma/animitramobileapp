@@ -1,7 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+
+const APP_ICON = require('../../assets/images/icon.png');
 
 const C = {
   primary: '#006064', bg: '#F0FAFA', surface: '#FFFFFF', fill: '#EDF7EE',
@@ -30,7 +32,7 @@ export default function AboutScreen() {
         {/* Logo */}
         <View style={s.header}>
           <View style={s.logoCircle}>
-            <Text style={s.logoEmoji}>🐾</Text>
+            <Image source={APP_ICON} style={s.logoImg} resizeMode="contain" />
           </View>
           <Text style={s.appName}>ANIMitra VET</Text>
           <Text style={s.tagline}>Veterinary Practice Manager</Text>
@@ -165,8 +167,8 @@ const s = StyleSheet.create({
   scroll: { flex: 1 },
   content: { paddingBottom: 40 },
   header: { alignItems: 'center', paddingVertical: 32, backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border },
-  logoCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: C.secondary, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-  logoEmoji: { fontSize: 40 },
+  logoCircle: { width: 80, height: 80, borderRadius: 12, backgroundColor: '#004D40', justifyContent: 'center', alignItems: 'center', marginBottom: 12, overflow: 'hidden' },
+  logoImg: { width: 76, height: 76 },
   appName: { fontSize: 13, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.primary },
   tagline: { fontSize: 14, color: C.sub, marginTop: 4 },
   version: { fontSize: 12, color: C.sub, marginTop: 4, backgroundColor: C.fill, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },

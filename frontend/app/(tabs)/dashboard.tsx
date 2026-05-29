@@ -3,11 +3,13 @@ import {
   View, Text, StyleSheet, ScrollView,
   ActivityIndicator, TouchableOpacity, RefreshControl, Alert,
   Modal, TextInput, KeyboardAvoidingView, Platform, Linking,
-  Animated, FlatList} from 'react-native';
+  Animated, FlatList, Image} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
+
+const APP_ICON = require('../../assets/images/icon.png');
 import * as Contacts from 'expo-contacts';
 import * as Clipboard from 'expo-clipboard';
 import DatePickerModal from '../../components/DatePicker';
@@ -380,7 +382,7 @@ export default function DashboardScreen() {
             <Text style={styles.reg}>{user.reg_no}</Text>
           </View>
           <TouchableOpacity testID="logout-btn" style={styles.avatarBtn} onPress={handleLogout}>
-            <Text style={{ fontSize: 14 }}>🐾</Text>
+            <Image source={APP_ICON} style={styles.avatarIcon} resizeMode="contain" />
           </TouchableOpacity>
         </View>
         <View style={styles.locPill}>
@@ -969,7 +971,8 @@ const styles = StyleSheet.create({
   greeting: { fontSize: 13, color: C.sub },
   name: { fontSize: 13, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.text, marginTop: 2 },
   reg: { fontSize: 12, color: C.sub },
-  avatarBtn: { width: 48, height: 44, borderRadius: 24, backgroundColor: C.secondary, justifyContent: 'center', alignItems: 'center' },
+  avatarBtn: { width: 46, height: 46, borderRadius: 10, backgroundColor: C.secondary, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
+  avatarIcon: { width: 42, height: 42, borderRadius: 8 },
   locPill: { marginHorizontal: 16, marginBottom: 12, backgroundColor: C.secondary, borderRadius: 20, paddingVertical: 5, paddingHorizontal: 12, alignSelf: 'flex-start' },
   locText: { fontSize: 11, color: C.primary, fontFamily: 'Inter_500Medium' },
   trialBanner: { marginHorizontal: 16, marginBottom: 10, backgroundColor: '#FFF8E1', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#FFE082' },
