@@ -18,6 +18,7 @@ interface User {
   is_trial?: boolean;
   is_trial_expired?: boolean;
   trial_days_left?: number;
+  profile_photo?: string;
 }
 
 interface AuthContextType {

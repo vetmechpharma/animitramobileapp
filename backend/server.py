@@ -386,7 +386,15 @@ async def login(data: LoginRequest):
 
 @api_router.get("/auth/me")
 async def me(user=Depends(get_current_user)):
-    return {"success": True, "user": user}
+    # Include profile_photo in the response
+    db_user = await db.users.find_one({"_id": ObjectId(user["id"])})
+    return {"success": True, "user": {
+        **user,
+        "profile_photo": db_user.get("profile_photo", "") if db_user else "",
+        "is_trial": user.get("is_trial", False),
+        "is_trial_expired": user.get("is_trial_expired", False),
+        "trial_days_left": user.get("trial_days_left", 0),
+    }}
 
 # --------------------------- location -----------------------------------------
 

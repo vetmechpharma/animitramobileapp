@@ -61,6 +61,7 @@ export default function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="register" />
           <Stack.Screen name="activate" />
+          <Stack.Screen name="profile-edit" />
           <Stack.Screen name="(tabs)" />
         </Stack>
       </AuthProvider>
