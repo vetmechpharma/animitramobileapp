@@ -1,9 +1,9 @@
 import { Stack } from 'expo-router';
 import { AuthProvider } from '../contexts/AuthContext';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
-import * as Notifications from 'expo-notifications';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Platform } from 'react-native';
 import {
   useFonts,
   Inter_400Regular,
@@ -12,16 +12,10 @@ import {
   Inter_700Bold,
   Inter_800ExtraBold,
 } from '@expo-google-fonts/inter';
-import {
-  registerForPushNotifications,
-  scheduleDailyNotifications,
-} from '../utils/notifications';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const notifListener = useRef<any>();
-
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -37,34 +31,25 @@ export default function RootLayout() {
   }, [fontsLoaded, fontError]);
 
   useEffect(() => {
-    // Set up notifications on app start
+    // Notifications only work on native (Android/iOS), not web
+    if (Platform.OS === 'web') return;
+
     const setupNotifications = async () => {
       try {
+        // Dynamic import to avoid web bundling crash
+        const { registerForPushNotifications, scheduleDailyNotifications } =
+          await import('../utils/notifications');
         const token = await registerForPushNotifications();
         if (token) {
-          // Store token globally so AuthContext can use it
           (global as any).__expoPushToken = token;
-          // Schedule daily morning + evening notifications
           await scheduleDailyNotifications();
         }
       } catch (e) {
-        // Non-critical — app works without notifications
+        // Non-critical — app works perfectly without notifications
       }
     };
+
     setupNotifications();
-
-    // Listen for notification taps (when app is in background/closed)
-    notifListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      const data = response.notification.request.content.data;
-      // Could navigate to specific screen based on data.screen
-      console.log('Notification tapped:', data);
-    });
-
-    return () => {
-      if (notifListener.current) {
-        Notifications.removeNotificationSubscription(notifListener.current);
-      }
-    };
   }, []);
 
   if (!fontsLoaded && !fontError) return null;

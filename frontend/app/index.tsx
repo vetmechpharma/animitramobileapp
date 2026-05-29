@@ -17,7 +17,6 @@ const DEMO_PASSWORD = 'Demo@123';
 const LOGO = require('../assets/images/animitra-logo.png');
 
 export default function LoginScreen() {
-  const router = useRouter();
   const { login, user, isLoading } = useAuth();
   const insets = useSafeAreaInsets();
   const [mobile, setMobile] = useState('');
@@ -200,11 +199,8 @@ const s = StyleSheet.create({
     position: 'absolute', width: 80, height: 80, borderRadius: 40,
     backgroundColor: 'rgba(0,188,212,0.12)', top: 20, left: 30,
   },
-  logo: { width: width * 0.52, height: width * 0.52, maxWidth: 220, maxHeight: 220 },
-  appTagline: {
-    fontFamily: 'Inter_500Medium', fontSize: 10, color: 'rgba(200,240,240,0.7)',
-    letterSpacing: 1.5, textAlign: 'center', marginTop: -8,
-  },
+  logo: { width: width * 0.72, height: width * 0.48, maxWidth: 320, maxHeight: 214 },
+  appTagline: { display: 'none' },
 
   // Card
   cardScroll: { paddingBottom: 24 },

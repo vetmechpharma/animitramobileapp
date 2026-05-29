@@ -532,6 +532,9 @@ async def send_push_notification(push_token: str, title: str, body: str, data: d
             )
     except Exception:
         pass  # Non-critical — never block app flow
+
+
+async def update_farmer_directory(mobile: str, owner_name: str, village_name: str):
     """Update global farmer directory for cross-vet name/village suggestions."""
     try:
         await db.farmer_directory.update_one(
