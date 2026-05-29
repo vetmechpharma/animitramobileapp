@@ -1,11 +1,13 @@
 import React, { useState, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView,
-  ActivityIndicator, Alert} from 'react-native';
+  ActivityIndicator, Alert, Image} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import QRCode from 'react-native-qrcode-svg';
+
+const LOGO = require('../assets/images/animitra-logo.png');
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 const UPI_STRING = 'upi://pay?pa=9486544884@kvb&pn=ANIMitra VET&am=200&cu=INR&tn=ANIMitra VET+Subscription';
@@ -104,7 +106,9 @@ export default function ActivateScreen() {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {/* Logo */}
           <View style={styles.logoSection}>
-            <View style={styles.logoCircle}><Text style={styles.logoEmoji}>🐾</Text></View>
+            <View style={styles.logoCircle}>
+              <Image source={LOGO} style={styles.logoImg} resizeMode="contain" />
+            </View>
             <Text style={styles.appName}>ANIMitra VET</Text>
           </View>
 
@@ -224,8 +228,8 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
   scroll: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 40 },
   logoSection: { alignItems: 'center', paddingTop: 32, paddingBottom: 20 },
-  logoCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: C.surfaceSecondary, justifyContent: 'center', alignItems: 'center' },
-  logoEmoji: { fontSize: 36 },
+  logoCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#004D40', justifyContent: 'center', alignItems: 'center' },
+  logoImg: { width: 72, height: 48 },
   appName: { fontSize: 14, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.primary, marginTop: 10, letterSpacing: -0.5 },
   // Section toggle
   toggleRow: { flexDirection: 'row', backgroundColor: C.fill, borderRadius: 14, padding: 4, marginBottom: 16 },

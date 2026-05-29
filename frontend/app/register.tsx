@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView,
-  ActivityIndicator, Alert, Modal, FlatList} from 'react-native';
+  ActivityIndicator, Alert, Modal, FlatList, Image} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
+
+const LOGO = require('../assets/images/animitra-logo.png');
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
@@ -141,7 +143,8 @@ export default function RegisterScreen() {
               <Text style={styles.backText}>← Back</Text>
             </TouchableOpacity>
             <View style={styles.logoRow}>
-              <Text style={styles.logoEmoji}>🐾</Text>
+              <Text style={{ fontSize: 28 }}>🐾</Text>
+              <Text style={styles.appName}>ANIMitra<Text style={{color: '#006064'}}>VET</Text></Text>
               <Text style={styles.appName}>ANIMitra VET</Text>
             </View>
             <Text style={styles.pageTitle}>Create Account</Text>

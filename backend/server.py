@@ -888,6 +888,9 @@ async def edit_case(case_id: str, data: dict, user=Depends(get_current_user)):
         update["visit_reason"] = data["visit_reason"]
     await db.cases.update_one({"_id": ObjectId(case_id)}, {"$set": update})
     return {"success": True}
+
+
+@api_router.delete("/cases/{case_id}")
 async def delete_case(case_id: str, user=Depends(get_current_user)):
     result = await db.cases.delete_one({"_id": ObjectId(case_id), "vet_id": user["id"]})
     if result.deleted_count == 0:
@@ -1155,6 +1158,7 @@ async def admin_user_status_chart(user=Depends(get_admin_user)):
     }
 
 
+@api_router.get("/reports/animal-type")
 async def report_animal_type(period: str = "month", user=Depends(get_current_user)):
     start = get_period_start(period)
     pipeline = [
