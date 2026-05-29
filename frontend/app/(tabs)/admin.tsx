@@ -35,6 +35,10 @@ export default function AdminScreen() {
   // Users
   const [users, setUsers] = useState<any[]>([]);
   const [userSearch, setUserSearch] = useState('');
+  const [filterState, setFilterState] = useState('');
+  const [filterDistrict, setFilterDistrict] = useState('');
+  const [availableStates, setAvailableStates] = useState<string[]>([]);
+  const [availableDistricts, setAvailableDistricts] = useState<string[]>([]);
   // Analytics
   const [performers, setPerformers] = useState<{ by_cases: any[]; by_earnings: any[] }>({ by_cases: [], by_earnings: [] });
   const [perfView, setPerfView] = useState<'cases' | 'earnings'>('cases');
@@ -70,7 +74,11 @@ export default function AdminScreen() {
       } else if (tab === 'users') {
         const r = await fetch(`${BACKEND_URL}/api/admin/users`, { headers: h });
         const d = await r.json();
-        setUsers(d.users || []);
+        const userList = d.users || [];
+        setUsers(userList);
+        // Collect unique states + districts for filter
+        const states = [...new Set(userList.map((u: any) => u.state).filter(Boolean))].sort() as string[];
+        setAvailableStates(states);
       } else if (tab === 'banners') {
         const r = await fetch(`${BACKEND_URL}/api/admin/banners`, { headers: h });
         const d = await r.json();
@@ -143,10 +151,12 @@ export default function AdminScreen() {
     ]);
   };
 
-  const filteredUsers = userSearch
-    ? users.filter(u => u.name.toLowerCase().includes(userSearch.toLowerCase()) ||
-        u.mobile.includes(userSearch) || u.district?.toLowerCase().includes(userSearch.toLowerCase()))
-    : users;
+  const filteredUsers = users.filter(u => {
+    const matchSearch = !userSearch || u.name.toLowerCase().includes(userSearch.toLowerCase()) || u.mobile.includes(userSearch) || u.district?.toLowerCase().includes(userSearch.toLowerCase());
+    const matchState = !filterState || u.state === filterState;
+    const matchDistrict = !filterDistrict || u.district === filterDistrict;
+    return matchSearch && matchState && matchDistrict;
+  });
 
   return (
     <SafeAreaView style={s.safe} edges={["top","left","right"]}>
@@ -225,6 +235,45 @@ export default function AdminScreen() {
                   value={userSearch}
                   onChangeText={setUserSearch}
                 />
+
+                {/* State filter chips */}
+                {availableStates.length > 0 && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 6 }}>
+                    <TouchableOpacity style={[s.filterChip, !filterState && s.filterChipActive]}
+                      onPress={() => { setFilterState(''); setFilterDistrict(''); setAvailableDistricts([]); }}>
+                      <Text style={[s.filterChipText, !filterState && { color: '#fff' }]}>All States</Text>
+                    </TouchableOpacity>
+                    {availableStates.map(st => (
+                      <TouchableOpacity key={st} style={[s.filterChip, filterState === st && s.filterChipActive]}
+                        onPress={() => {
+                          setFilterState(filterState === st ? '' : st); setFilterDistrict('');
+                          if (filterState !== st) {
+                            const dists = [...new Set(users.filter((u: any) => u.state === st).map((u: any) => u.district).filter(Boolean))].sort() as string[];
+                            setAvailableDistricts(dists);
+                          } else { setAvailableDistricts([]); }
+                        }}>
+                        <Text style={[s.filterChipText, filterState === st && { color: '#fff' }]}>{st}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+
+                {/* District filter chips */}
+                {availableDistricts.length > 0 && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 6 }}>
+                    <TouchableOpacity style={[s.filterChip, { backgroundColor: '#E3F2FD', borderColor: '#90CAF9' }, !filterDistrict && { backgroundColor: C.blue }]}
+                      onPress={() => setFilterDistrict('')}>
+                      <Text style={[s.filterChipText, !filterDistrict && { color: '#fff' }]}>All Districts</Text>
+                    </TouchableOpacity>
+                    {availableDistricts.map(dt => (
+                      <TouchableOpacity key={dt} style={[s.filterChip, { backgroundColor: '#E3F2FD', borderColor: '#90CAF9' }, filterDistrict === dt && { backgroundColor: C.blue }]}
+                        onPress={() => setFilterDistrict(filterDistrict === dt ? '' : dt)}>
+                        <Text style={[s.filterChipText, filterDistrict === dt && { color: '#fff' }]}>{dt}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+
                 <Text style={s.countText}>{filteredUsers.length} registered vets</Text>
                 {filteredUsers.map(u => (
                   <View key={u.id} testID={`user-card-${u.id}`} style={[s.card, u.is_suspended && s.suspendedCard]}>
@@ -722,6 +771,10 @@ const s = StyleSheet.create({
   couponStatusFree: { backgroundColor: C.secondary },
   couponStatusUsed: { backgroundColor: '#EEEEEE' },
   couponStatusText: { fontSize: 11, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text },
+  // Filter chips
+  filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 50, backgroundColor: C.fill, borderWidth: 1, borderColor: C.border, marginRight: 6 },
+  filterChipActive: { backgroundColor: C.primary, borderColor: C.primary },
+  filterChipText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: C.text },
   // Suspend modal
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
   suspendSheet: { backgroundColor: C.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 14, paddingBottom: Platform.OS === 'ios' ? 36 : 20 },

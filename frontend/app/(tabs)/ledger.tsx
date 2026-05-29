@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, FlatList,
   TouchableOpacity, ActivityIndicator, RefreshControl,
   Alert, Modal, TextInput, ScrollView, Platform, Linking} from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -48,6 +49,9 @@ export default function LedgerScreen() {
   const [collecting, setCollecting] = useState(false);
 
   useEffect(() => { fetchLedger(); }, [period, token]);
+
+  // Auto-refresh when tab gains focus
+  useFocusEffect(useCallback(() => { if (token) fetchLedger(); }, [period, token]));
 
   const fetchLedger = async () => {
     if (!token) return;

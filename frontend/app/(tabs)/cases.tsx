@@ -4,6 +4,7 @@ import {
   TouchableOpacity, ActivityIndicator, RefreshControl,
   Alert, Modal, TextInput, Linking, Platform, ScrollView,
 } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import DatePickerModal from '../../components/DatePicker';
@@ -117,6 +118,9 @@ export default function CasesScreen() {
   const [editSaving, setEditSaving] = useState(false);
 
   useEffect(() => { fetchCases(); }, [activeTab, token]);
+
+  // Auto-refresh when tab gains focus
+  useFocusEffect(useCallback(() => { if (token) fetchCases(); }, [activeTab, token]));
 
   const fetchCases = async () => {
     if (!token) return;

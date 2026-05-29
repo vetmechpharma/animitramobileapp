@@ -6,6 +6,7 @@ import {
   Animated, FlatList} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import * as Contacts from 'expo-contacts';
 import * as Clipboard from 'expo-clipboard';
