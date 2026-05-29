@@ -82,12 +82,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const data = await res.json();
     if (!res.ok) {
-      if (data.detail === 'FREE_TRIAL_EXPIRED') {
-        throw new Error('FREE_TRIAL_EXPIRED');
-      }
+      if (data.detail === 'FREE_TRIAL_EXPIRED') throw new Error('FREE_TRIAL_EXPIRED');
       throw new Error(data.detail || 'Login failed');
     }
     await setAuthData(data.token, data.user);
+    // Register push token with backend after successful login
+    const pushToken = (global as any).__expoPushToken;
+    if (pushToken && data.token) {
+      try {
+        await fetch(`${BACKEND_URL}/api/push-token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.token}` },
+          body: JSON.stringify({ token: pushToken }),
+        });
+      } catch (e) { /* Non-critical */ }
+    }
   };
 
   const register = async (regData: RegisterData): Promise<{ token: string; user: User }> => {

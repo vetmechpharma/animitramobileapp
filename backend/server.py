@@ -431,9 +431,44 @@ async def export_my_clients(user=Depends(get_current_user)):
         outstanding = round(r.get("outstanding", 0), 2)
         lines.append(f"{r['owner_name']},{r['mobile']},{r.get('village_name','')},{animals},{r['total_cases']},{round(r.get('total_paid',0),2)},{outstanding},{visit_str}")
     return PlainTextResponse("\n".join(lines), media_type="text/csv")
+
+
+@api_router.get("/villages")
 async def villages(user=Depends(get_current_user)):
     vlist = await db.cases.distinct("village_name", {"vet_id": user["id"], "village_name": {"$nin": [None, ""]}})
     return {"villages": sorted([v for v in vlist if v])}
+
+
+@api_router.post("/push-token")
+async def save_push_token(data: dict, user=Depends(get_current_user)):
+    token = data.get("token", "")
+    if token:
+        await db.users.update_one({"_id": ObjectId(user["id"])},
+            {"$set": {"push_token": token, "push_token_updated": datetime.now(timezone.utc)}})
+    return {"success": True}
+
+
+@api_router.get("/notifications/daily-summary")
+async def daily_summary(user=Depends(get_current_user)):
+    vid = user["id"]
+    await run_auto_pending(vid)
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    tomorrow = today + timedelta(days=1)
+    today_c = await db.cases.count_documents({"vet_id": vid, "visit_date": {"$gte": today, "$lt": tomorrow}, "is_opening_balance": {"$ne": True}})
+    closed_t = await db.cases.count_documents({"vet_id": vid, "status": "closed", "updated_at": {"$gte": today, "$lt": tomorrow}})
+    pending = await db.cases.count_documents({"vet_id": vid, "status": "pending", "is_opening_balance": {"$ne": True}})
+    upcoming = await db.cases.count_documents({"vet_id": vid, "status": "upcoming", "is_opening_balance": {"$ne": True}})
+    forwarded = await db.cases.count_documents({"vet_id": vid, "status": "forwarded"})
+    earn_agg = await db.cases.aggregate([
+        {"$match": {"vet_id": vid, "is_paid": True, "paid_at": {"$gte": today, "$lt": tomorrow}}},
+        {"$group": {"_id": None, "total": {"$sum": "$paid_amount"}}}
+    ]).to_list(1)
+    return {
+        "today_cases": today_c, "closed_today": closed_t,
+        "pending": pending, "upcoming": upcoming,
+        "forwarded": forwarded, "vet_name": user["name"],
+        "today_earnings": round(earn_agg[0]["total"], 0) if earn_agg else 0,
+    }
 
 
 @api_router.get("/cases/farmer-lookup")
@@ -474,7 +509,29 @@ async def farmer_lookup(q: str = "", user=Depends(get_current_user)):
 
 # --------------------------- case routes --------------------------------------
 
-async def update_farmer_directory(mobile: str, owner_name: str, village_name: str):
+import httpx
+
+async def send_push_notification(push_token: str, title: str, body: str, data: dict = {}):
+    """Send Expo push notification — free, no extra account needed."""
+    if not push_token or not push_token.startswith('ExponentPushToken'):
+        return
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.post(
+                'https://exp.host/--/api/v2/push/send',
+                json={
+                    'to': push_token,
+                    'title': title,
+                    'body': body,
+                    'data': data,
+                    'sound': 'default',
+                    'priority': 'high',
+                    'channelId': 'default',
+                },
+                headers={'Content-Type': 'application/json'}
+            )
+    except Exception:
+        pass  # Non-critical — never block app flow
     """Update global farmer directory for cross-vet name/village suggestions."""
     try:
         await db.farmer_directory.update_one(
@@ -779,6 +836,15 @@ async def forward_case(case_id: str, data: ForwardCaseRequest, user=Depends(get_
         "forwarded_from": user["name"], "forwarded_to_name": "",
         "created_at": now, "updated_at": now,
     })
+    # Send push notification to receiving vet
+    if target.get("push_token"):
+        await send_push_notification(
+            target["push_token"],
+            "📋 Case Forwarded to You",
+            f"Dr. {user['name']}: {case['owner_name']}'s {case['animal_type']} — {case['visit_reason']}",
+            {"type": "case_forwarded", "owner_name": case["owner_name"]}
+        )
+
     await db.cases.update_one({"_id": ObjectId(case_id)}, {"$set": {
         "status": "forwarded", "forwarded_to_name": target.get("name", target["mobile"]),
         "updated_at": now,
