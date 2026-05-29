@@ -527,7 +527,7 @@ async def quick_add_case(data: QuickCaseRequest, user=Depends(get_current_user))
     if data.mobile and data.owner_name:
         await update_farmer_directory(data.mobile, data.owner_name, data.village_name or "")
 
-    # If opening balance provided, create outstanding ledger entry
+    # If opening balance provided, create a LEDGER-ONLY entry (not a real case)
     if data.opening_balance and data.opening_balance > 0:
         await db.cases.insert_one({
             "vet_id": user["id"], "owner_name": data.owner_name, "mobile": data.mobile,
@@ -538,6 +538,7 @@ async def quick_add_case(data: QuickCaseRequest, user=Depends(get_current_user))
             "is_paid": False, "payment_mode": None, "paid_amount": 0.0,
             "paid_at": None, "follow_up_date": None,
             "forwarded_to_name": "", "forwarded_from": "",
+            "is_opening_balance": True,  # Flag: exclude from case lists and reports
             "created_at": now, "updated_at": now,
         })
 
@@ -551,7 +552,8 @@ async def today_cases(user=Depends(get_current_user)):
     cursor = db.cases.find({
         "vet_id": user["id"],
         "visit_date": {"$gte": today_start, "$lt": tomorrow},
-        "status": {"$nin": ["forwarded", "closed"]},  # Exclude forwarded + closed from today's view
+        "status": {"$nin": ["forwarded", "closed"]},
+        "is_opening_balance": {"$ne": True},  # Exclude opening balance entries
     }).sort("visit_date", 1)
     return {"cases": [fmt_case(c) async for c in cursor]}
 
@@ -559,21 +561,90 @@ async def today_cases(user=Depends(get_current_user)):
 async def upcoming_cases(user=Depends(get_current_user)):
     await run_auto_pending(user["id"])
     tomorrow = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
-    cursor = db.cases.find({"vet_id": user["id"], "status": "upcoming",
-        "visit_date": {"$gte": tomorrow}}).sort("visit_date", 1).limit(20)
+    cursor = db.cases.find({
+        "vet_id": user["id"], "status": "upcoming",
+        "visit_date": {"$gte": tomorrow},
+        "is_opening_balance": {"$ne": True},
+    }).sort("visit_date", 1).limit(20)
     return {"cases": [fmt_case(c) async for c in cursor]}
 
 @api_router.get("/cases/pending")
 async def pending_cases(user=Depends(get_current_user)):
     await run_auto_pending(user["id"])
-    cursor = db.cases.find({"vet_id": user["id"], "status": "pending"}).sort("visit_date", -1).limit(50)
+    cursor = db.cases.find({
+        "vet_id": user["id"], "status": "pending",
+        "is_opening_balance": {"$ne": True},
+    }).sort("visit_date", -1).limit(50)
     return {"cases": [fmt_case(c) async for c in cursor]}
 
 @api_router.get("/cases/closed")
 async def closed_cases(user=Depends(get_current_user), skip: int = 0, limit: int = 50):
-    cursor = db.cases.find({"vet_id": user["id"], "status": "closed"}).sort("updated_at", -1).skip(skip).limit(limit)
-    total = await db.cases.count_documents({"vet_id": user["id"], "status": "closed"})
+    q = {"vet_id": user["id"], "status": {"$in": ["closed", "forwarded"]}, "is_opening_balance": {"$ne": True}}
+    cursor = db.cases.find(q).sort("updated_at", -1).skip(skip).limit(limit)
+    total = await db.cases.count_documents(q)
     return {"cases": [fmt_case(c) async for c in cursor], "total": total}
+
+@api_router.get("/cases/client/{mobile}")
+async def client_case_history(mobile: str, user=Depends(get_current_user)):
+    """All cases for a specific client (by mobile), for this vet only."""
+    cursor = db.cases.find({
+        "vet_id": user["id"], "mobile": mobile,
+        "is_opening_balance": {"$ne": True},
+    }).sort("visit_date", -1).limit(50)
+    cases = [fmt_case(c) async for c in cursor]
+    agg = await db.cases.aggregate([
+        {"$match": {"vet_id": user["id"], "mobile": mobile, "is_paid": False, "amount": {"$gt": 0}}},
+        {"$group": {"_id": None, "total": {"$sum": {"$subtract": ["$amount", "$paid_amount"]}}}}
+    ]).to_list(1)
+    return {"cases": cases, "total": len(cases), "outstanding": round(agg[0]["total"], 2) if agg else 0}
+
+@api_router.get("/cases/client-outstanding/{mobile}")
+async def client_outstanding(mobile: str, user=Depends(get_current_user)):
+    agg = await db.cases.aggregate([
+        {"$match": {"vet_id": user["id"], "mobile": mobile, "status": "closed", "is_paid": False, "amount": {"$gt": 0}}},
+        {"$group": {"_id": None, "total": {"$sum": {"$subtract": ["$amount", "$paid_amount"]}}, "count": {"$sum": 1}}}
+    ]).to_list(1)
+    return {"outstanding": round(agg[0]["total"], 2) if agg else 0, "count": agg[0]["count"] if agg else 0}
+
+@api_router.post("/cases/{case_id}/reactivate")
+async def reactivate_case(case_id: str, user=Depends(get_current_user)):
+    case = await db.cases.find_one({"_id": ObjectId(case_id), "vet_id": user["id"], "status": "forwarded"})
+    if not case:
+        raise HTTPException(404, "Forwarded case not found")
+    await db.cases.update_one({"_id": ObjectId(case_id)}, {"$set": {
+        "status": "active", "forwarded_to_name": "",
+        "notes": (case.get("notes", "") + " [Re-activated]").strip(),
+        "updated_at": datetime.now(timezone.utc)
+    }})
+    return {"success": True}
+
+@api_router.post("/cases/{case_id}/decline")
+async def decline_case(case_id: str, user=Depends(get_current_user)):
+    case = await db.cases.find_one({"_id": ObjectId(case_id), "vet_id": user["id"]})
+    if not case:
+        raise HTTPException(404, "Case not found")
+    now = datetime.now(timezone.utc)
+    forwarded_from_name = case.get("forwarded_from", "")
+    if forwarded_from_name:
+        original_vet = await db.users.find_one({"name": forwarded_from_name, "role": "vet"})
+        if original_vet:
+            await db.cases.insert_one({
+                "vet_id": str(original_vet["_id"]), "owner_name": case["owner_name"],
+                "mobile": case["mobile"], "village_name": case.get("village_name", ""),
+                "animal_type": case["animal_type"], "visit_reason": case["visit_reason"],
+                "visit_date": now.replace(hour=0, minute=0, second=0, microsecond=0),
+                "amount": 0.0, "notes": f"Returned — Declined by Dr. {user.get('name', '')}",
+                "status": "active", "is_paid": False, "payment_mode": None, "paid_amount": 0.0,
+                "paid_at": None, "follow_up_date": None,
+                "forwarded_to_name": "", "forwarded_from": "",
+                "created_at": now, "updated_at": now, "is_opening_balance": False,
+            })
+    await db.cases.update_one({"_id": ObjectId(case_id)}, {"$set": {
+        "status": "declined",
+        "notes": (case.get("notes", "") + f" [Declined by Dr. {user.get('name','')}]").strip(),
+        "updated_at": now
+    }})
+    return {"success": True, "returned_to": forwarded_from_name}
 
 @api_router.post("/cases/{case_id}/close")
 async def close_case(case_id: str, data: CloseCaseRequest, user=Depends(get_current_user)):
@@ -913,7 +984,7 @@ async def submit_utr(data: UTRRequest, user=Depends(get_current_user)):
 async def report_animal_type(period: str = "month", user=Depends(get_current_user)):
     start = get_period_start(period)
     pipeline = [
-        {"$match": {"vet_id": user["id"], "created_at": {"$gte": start}}},
+        {"$match": {"vet_id": user["id"], "created_at": {"$gte": start}, "is_opening_balance": {"$ne": True}}},
         {"$group": {"_id": "$animal_type", "count": {"$sum": 1}, "earnings": {"$sum": "$paid_amount"}}},
         {"$sort": {"count": -1}},
     ]

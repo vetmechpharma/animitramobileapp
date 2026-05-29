@@ -76,7 +76,22 @@ export default function CasesScreen() {
   const [forwarding, setForwarding] = useState(false);
   const [forwardHistory, setForwardHistory] = useState<{ name: string; mobile: string; forward_count: number }[]>([]);
 
-  // Edit closed case
+  // Client outstanding + history
+  const [clientHistory, setClientHistory] = useState<{ cases: Case[]; outstanding: number; total: number } | null>(null);
+  const [showClientHistory, setShowClientHistory] = useState(false);
+  const [closeClientOutstanding, setCloseClientOutstanding] = useState(0);
+
+  const viewClientHistory = async (mobile: string) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/cases/client/${mobile}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const d = await res.json();
+      setClientHistory(d);
+      setShowClientHistory(true);
+    } catch (e) {}
+  };
   const [editCase, setEditCase] = useState<Case | null>(null);
   const [editNotes, setEditNotes] = useState('');
   const [editVisitReason, setEditVisitReason] = useState('');
@@ -112,10 +127,20 @@ export default function CasesScreen() {
     ]);
   };
 
-  const openClose = (c: Case) => {
+  const openClose = async (c: Case) => {
     setCloseCase(c);
     setCloseForm({ treatment_status: 'treated', amount: c.amount ? `${c.amount}` : '', payment_status: 'full', payment_mode: 'Cash', paid_amount: '' });
     setShowFollowUp(false); setFollowUpReason('');
+    // Fetch client's outstanding amount for warning
+    if (token) {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/cases/client-outstanding/${c.mobile}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const d = await res.json();
+        setCloseClientOutstanding(d.outstanding || 0);
+      } catch (e) { setCloseClientOutstanding(0); }
+    }
   };
 
   const saveClose = async () => {
@@ -216,7 +241,9 @@ export default function CasesScreen() {
         {/* Header row */}
         <View style={styles.cardRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.cardOwner}>{c.owner_name}</Text>
+            <TouchableOpacity onPress={() => viewClientHistory(c.mobile)} activeOpacity={0.7}>
+              <Text style={[styles.cardOwner, { textDecorationLine: 'underline' }]}>{c.owner_name}</Text>
+            </TouchableOpacity>
             {c.village_name ? <Text style={styles.cardVillage}>📍 {c.village_name}</Text> : null}
             <Text style={styles.cardMeta}>{c.animal_type} · {c.visit_reason}</Text>
             <Text style={styles.cardDate}>{formatDate(c.visit_date)}</Text>
@@ -258,7 +285,7 @@ export default function CasesScreen() {
             </>
           )}
 
-          {/* CLOSED — Edit only, no delete/close/forward */}
+          {/* CLOSED — Edit only + Re-activate if forwarded */}
           {c.status === 'closed' && (
             <TouchableOpacity testID={`edit-${c.id}`} style={styles.editBtn}
               onPress={() => { setEditCase(c); setEditNotes(c.notes || ''); setEditVisitReason(c.visit_reason || ''); }}>
@@ -266,7 +293,43 @@ export default function CasesScreen() {
             </TouchableOpacity>
           )}
 
-          {/* FORWARDED — read only */}
+          {/* FORWARDED by original vet — Re-activate option */}
+          {c.status === 'forwarded' && !c.forwarded_from && (
+            <TouchableOpacity testID={`reactivate-${c.id}`} style={[styles.editBtn, { backgroundColor: '#E3F2FD' }]}
+              onPress={() => {
+                Alert.alert('Re-activate Case', `Bring case for ${c.owner_name} back to your active list?`, [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Re-activate', onPress: async () => {
+                    try {
+                      await fetch(`${BACKEND_URL}/api/cases/${c.id}/reactivate`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+                      fetchCases();
+                      Alert.alert('✅ Re-activated', 'Case moved back to Today\'s list');
+                    } catch (e) { Alert.alert('Error', 'Failed to re-activate'); }
+                  }},
+                ]);
+              }}>
+              <Text style={[styles.editBtnText, { color: C.blue }]}>↺ Re-activate</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* RECEIVED forwarded case — Decline option */}
+          {c.forwarded_from && (c.status === 'active' || c.status === 'pending') && (
+            <TouchableOpacity testID={`decline-${c.id}`} style={[styles.editBtn, { backgroundColor: '#FFF8E1' }]}
+              onPress={() => {
+                Alert.alert('Decline Case', `Return case for ${c.owner_name} to Dr. ${c.forwarded_from}?`, [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Decline', style: 'destructive', onPress: async () => {
+                    try {
+                      await fetch(`${BACKEND_URL}/api/cases/${c.id}/decline`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+                      fetchCases();
+                      Alert.alert('↩ Declined', `Case returned to Dr. ${c.forwarded_from}`);
+                    } catch (e) { Alert.alert('Error', 'Failed to decline'); }
+                  }},
+                ]);
+              }}>
+              <Text style={[styles.editBtnText, { color: C.warning }]}>✗ Decline</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     );
@@ -320,6 +383,17 @@ export default function CasesScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 520 }}>
+              {/* Outstanding warning */}
+              {closeClientOutstanding > 0 && (
+                <View style={[styles.infoBox, { backgroundColor: '#FFEBEE', borderWidth: 1, borderColor: '#FFCDD2', marginBottom: 4 }]}>
+                  <Text style={{ fontFamily: 'Inter_800ExtraBold', fontSize: 13, color: C.error }}>
+                    ⚠️ Outstanding: ₹{closeClientOutstanding.toLocaleString('en-IN')} from previous visits
+                  </Text>
+                  <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 11, color: C.error, marginTop: 2 }}>
+                    Collect old dues when closing this case
+                  </Text>
+                </View>
+              )}
               {/* Treated/Not Treated */}
               <Text style={styles.label}>TREATMENT STATUS</Text>
               <View style={styles.toggleRow}>
@@ -510,6 +584,57 @@ export default function CasesScreen() {
           </View>
         </View>
       </Modal>
+      {/* Client History Modal */}
+      <Modal visible={showClientHistory} transparent animationType="slide" onRequestClose={() => setShowClientHistory(false)}>
+        <View style={styles.overlay}>
+          <View style={[styles.sheet, { maxHeight: '80%' }]}>
+            <View style={styles.handle} />
+            <View style={styles.sheetHeader}>
+              <View>
+                <Text style={styles.sheetTitle}>📋 Client History</Text>
+                {clientHistory && (
+                  <Text style={styles.sheetSub}>
+                    {clientHistory.total} visit{clientHistory.total !== 1 ? 's' : ''}
+                    {clientHistory.outstanding > 0 && (
+                      <Text style={{ color: C.error, fontFamily: 'Inter_700Bold' }}> · ₹{clientHistory.outstanding.toLocaleString('en-IN')} outstanding</Text>
+                    )}
+                  </Text>
+                )}
+              </View>
+              <TouchableOpacity style={styles.xBtn} onPress={() => setShowClientHistory(false)}>
+                <Text style={styles.xText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={clientHistory?.cases || []}
+              keyExtractor={(_, i) => `${i}`}
+              style={{ maxHeight: 400 }}
+              renderItem={({ item: ch }) => (
+                <View style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.border }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 14, color: C.text }}>{ch.animal_type} · {ch.visit_reason}</Text>
+                    <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: ch.is_paid ? C.primary : C.error }}>
+                      {ch.amount > 0 ? `₹${ch.amount.toLocaleString('en-IN')}` : 'Free'}
+                    </Text>
+                  </View>
+                  <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: C.sub, marginTop: 2 }}>
+                    {new Date(ch.visit_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    {' · '}
+                    <Text style={{ color: ch.status === 'closed' ? (ch.is_paid ? C.primary : C.warning) : C.blue }}>
+                      {ch.status === 'closed' ? (ch.is_paid ? '✓ Paid' : '⚡ Unpaid') : ch.status}
+                    </Text>
+                  </Text>
+                  {ch.notes ? <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 11, color: C.muted, marginTop: 2, fontStyle: 'italic' }}>📝 {ch.notes}</Text> : null}
+                </View>
+              )}
+              ListEmptyComponent={<Text style={{ textAlign: 'center', padding: 20, color: C.sub, fontFamily: 'Inter_400Regular' }}>No case history found</Text>}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* FlatList import needed - already imported above */}
+
     </SafeAreaView>
   );
 }

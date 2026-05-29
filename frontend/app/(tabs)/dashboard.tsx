@@ -682,23 +682,27 @@ export default function DashboardScreen() {
                   </View>
                 </View>
 
-                {/* Opening Balance */}
-                <Text style={styles.inputLabel}>OPENING BALANCE (₹) <Text style={styles.optionalTag}>Optional</Text></Text>
-                <TextInput
-                  testID="quick-opening-balance-input"
-                  style={styles.input}
-                  placeholder="Previous pending amount from this client"
-                  placeholderTextColor="#9EB09F"
-                  keyboardType="numeric"
-                  value={quickForm.opening_balance}
-                  onChangeText={v => setQuickForm(f => ({ ...f, opening_balance: v }))}
-                />
-                {!!quickForm.opening_balance && parseFloat(quickForm.opening_balance) > 0 && (
-                  <View style={[styles.infoBox, { backgroundColor: '#FFF8E1' }]}>
-                    <Text style={[styles.infoText, { color: C.warning }]}>
-                      💡 ₹{parseFloat(quickForm.opening_balance).toLocaleString('en-IN')} will be added to Outstanding Ledger
-                    </Text>
-                  </View>
+                {/* Opening Balance — only for NEW clients (no previous cases) */}
+                {!knownFarmers.find(f => f.mobile === quickForm.mobile) && quickForm.mobile.length === 10 && (
+                  <>
+                    <Text style={styles.inputLabel}>OPENING BALANCE (₹) <Text style={styles.optionalTag}>First visit only</Text></Text>
+                    <TextInput
+                      testID="quick-opening-balance-input"
+                      style={styles.input}
+                      placeholder="Previous pending amount (if any)"
+                      placeholderTextColor="#9EB09F"
+                      keyboardType="numeric"
+                      value={quickForm.opening_balance}
+                      onChangeText={v => setQuickForm(f => ({ ...f, opening_balance: v }))}
+                    />
+                    {!!quickForm.opening_balance && parseFloat(quickForm.opening_balance) > 0 && (
+                      <View style={[styles.infoBox, { backgroundColor: '#FFF8E1' }]}>
+                        <Text style={[styles.infoText, { color: C.warning }]}>
+                          💡 ₹{parseFloat(quickForm.opening_balance).toLocaleString('en-IN')} → Outstanding Ledger only
+                        </Text>
+                      </View>
+                    )}
+                  </>
                 )}
 
                 {/* Notes */}
