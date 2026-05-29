@@ -548,8 +548,11 @@ async def today_cases(user=Depends(get_current_user)):
     await run_auto_pending(user["id"])
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     tomorrow = today_start + timedelta(days=1)
-    cursor = db.cases.find({"vet_id": user["id"],
-        "visit_date": {"$gte": today_start, "$lt": tomorrow}}).sort("visit_date", 1)
+    cursor = db.cases.find({
+        "vet_id": user["id"],
+        "visit_date": {"$gte": today_start, "$lt": tomorrow},
+        "status": {"$nin": ["forwarded", "closed"]},  # Exclude forwarded + closed from today's view
+    }).sort("visit_date", 1)
     return {"cases": [fmt_case(c) async for c in cursor]}
 
 @api_router.get("/cases/upcoming")

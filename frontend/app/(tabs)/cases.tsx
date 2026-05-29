@@ -74,6 +74,7 @@ export default function CasesScreen() {
   const [forwardMobile, setForwardMobile] = useState('');
   const [forwardMsg, setForwardMsg] = useState('');
   const [forwarding, setForwarding] = useState(false);
+  const [forwardHistory, setForwardHistory] = useState<{ name: string; mobile: string; forward_count: number }[]>([]);
 
   // Edit closed case
   const [editCase, setEditCase] = useState<Case | null>(null);
@@ -146,6 +147,22 @@ export default function CasesScreen() {
       Alert.alert('✅ Case Closed', treatment_status === 'not_treated' ? 'Closed as Not Treated.' : (payment_status === 'full' ? `₹${amount} received.` : `Added to Outstanding Ledger.`));
     } catch (e: any) { Alert.alert('Error', e.message); }
     finally { setCloseSaving(false); }
+  };
+
+  const openForward = async (c: Case) => {
+    setForwardCase(c);
+    setForwardMobile('');
+    setForwardMsg('');
+    // Load forward history
+    if (token) {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/forward-history`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const d = await res.json();
+        setForwardHistory(d.doctors || []);
+      } catch (e) { setForwardHistory([]); }
+    }
   };
 
   const saveForward = async () => {
@@ -235,7 +252,7 @@ export default function CasesScreen() {
                 <Text style={styles.closeBtnText}>✓ Close</Text>
               </TouchableOpacity>
               <TouchableOpacity testID={`forward-${c.id}`} style={styles.fwdBtn}
-                onPress={() => { setForwardCase(c); setForwardMobile(''); setForwardMsg(''); }}>
+                onPress={() => openForward(c)}>
                 <Text style={styles.fwdBtnText}>↗</Text>
               </TouchableOpacity>
             </>
@@ -414,16 +431,46 @@ export default function CasesScreen() {
                 <Text style={styles.xText}>✕</Text>
               </TouchableOpacity>
             </View>
+
+            {/* Previously forwarded doctors — quick select */}
+            {forwardHistory.length > 0 && (
+              <>
+                <Text style={styles.label}>PREVIOUSLY FORWARDED DOCTORS</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+                  {forwardHistory.map((doc, i) => (
+                    <TouchableOpacity
+                      key={i}
+                      testID={`fwd-history-${doc.mobile}`}
+                      style={[styles.historyChip, forwardMobile === doc.mobile && styles.historyChipSel]}
+                      onPress={() => setForwardMobile(doc.mobile)}
+                    >
+                      <Text style={[styles.historyChipName, forwardMobile === doc.mobile && { color: '#fff' }]}>
+                        Dr. {doc.name}
+                      </Text>
+                      <Text style={[styles.historyChipMeta, forwardMobile === doc.mobile && { color: 'rgba(255,255,255,0.75)' }]}>
+                        {doc.mobile} · {doc.forward_count}×
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <View style={styles.dividerRow}>
+                  <View style={styles.divLine} />
+                  <Text style={styles.divText}>or enter new number</Text>
+                  <View style={styles.divLine} />
+                </View>
+              </>
+            )}
+
             <Text style={styles.label}>DOCTOR'S MOBILE (Animitra registered)</Text>
-            <TextInput style={styles.input} placeholder="10-digit mobile" placeholderTextColor="#9EB09F"
+            <TextInput style={styles.input} placeholder="10-digit mobile number" placeholderTextColor="#9EB09F"
               keyboardType="phone-pad" value={forwardMobile}
               onChangeText={v => setForwardMobile(v.replace(/\D/g, '').slice(0, 10))} maxLength={10} />
             <Text style={styles.label}>MESSAGE <Text style={{ color: C.muted }}>Optional</Text></Text>
-            <TextInput style={[styles.input, { height: 64, paddingTop: 10, textAlignVertical: 'top' }]}
+            <TextInput style={[styles.input, { height: 60, paddingTop: 10, textAlignVertical: 'top' }]}
               placeholder="Note for the doctor..." placeholderTextColor="#9EB09F"
               multiline value={forwardMsg} onChangeText={setForwardMsg} />
             <View style={[styles.infoBox, { marginTop: 8 }]}>
-              <Text style={[styles.infoText, { color: C.blue }]}>📋 Case appears in their Today dashboard</Text>
+              <Text style={[styles.infoText, { color: C.blue }]}>📋 Case appears in their Today's dashboard · Original case marked as Forwarded</Text>
             </View>
             <TouchableOpacity style={[styles.saveBtn, { backgroundColor: C.blue }, forwarding && { opacity: 0.6 }]}
               onPress={saveForward} disabled={forwarding}>
@@ -549,7 +596,13 @@ const styles = StyleSheet.create({
   infoText: { fontFamily: 'Inter_500Medium', fontSize: 12 },
   saveBtn: { height: 50, backgroundColor: C.primary, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginTop: 14 },
   saveBtnText: { fontFamily: 'Inter_700Bold', fontSize: 15, color: '#fff' },
-  reasonChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  historyChip: { backgroundColor: C.fill, borderRadius: 12, padding: 10, marginRight: 8, borderWidth: 1, borderColor: C.border, minWidth: 100 },
+  historyChipSel: { backgroundColor: C.blue, borderColor: C.blue },
+  historyChipName: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: C.text },
+  historyChipMeta: { fontFamily: 'Inter_400Regular', fontSize: 11, color: C.sub, marginTop: 2 },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 10, gap: 8 },
+  divLine: { flex: 1, height: 1, backgroundColor: C.border },
+  divText: { fontFamily: 'Inter_400Regular', fontSize: 11, color: C.muted },
   reasonChip: { paddingHorizontal: 11, paddingVertical: 6, borderRadius: 50, backgroundColor: C.fill },
   reasonChipSel: { backgroundColor: C.primary },
   reasonChipText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: C.text },
