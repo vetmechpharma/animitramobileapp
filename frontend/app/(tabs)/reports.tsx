@@ -12,8 +12,8 @@ import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
 const C = {
-  primary: '#2E7D32', bg: '#F4F9F4', surface: '#FFFFFF', fill: '#EBF5EC',
-  secondary: '#E8F5E9', text: '#1A2E1C', sub: '#4B6352', border: '#D0E8D2',
+  primary: '#006064', bg: '#F0FAFA', surface: '#FFFFFF', fill: '#E0F2F1',
+  secondary: '#E0F2F1', text: '#1A2E1C', sub: '#4B6352', border: '#B2DFDB',
   warning: '#E65100', error: '#C62828', blue: '#1565C0', muted: '#8FA891',
 };
 
@@ -23,17 +23,17 @@ const PERIODS = [
   { key: 'year', label: 'Year' },
 ];
 
-const CHART_COLORS = ['#2E7D32', '#1565C0', '#E65100', '#6A1B9A', '#00695C', '#AD1457', '#F57F17', '#37474F'];
+const CHART_COLORS = ['#006064', '#1565C0', '#E65100', '#6A1B9A', '#00695C', '#AD1457', '#F57F17', '#37474F'];
 
 const chartConfig = {
   backgroundGradientFrom: '#FFFFFF',
   backgroundGradientTo: '#FFFFFF',
-  color: (opacity = 1) => `rgba(46, 125, 50, ${opacity})`,
+  color: (opacity = 1) => `rgba(0, 96, 100, ${opacity})`,
   labelColor: (opacity = 1) => `rgba(75, 99, 82, ${opacity})`,
   strokeWidth: 2,
   barPercentage: 0.7,
   decimalPlaces: 0,
-  propsForDots: { r: '4', strokeWidth: '2', stroke: '#2E7D32' },
+  propsForDots: { r: '4', strokeWidth: '2', stroke: '#006064' },
 };
 
 const earningsChartConfig = {

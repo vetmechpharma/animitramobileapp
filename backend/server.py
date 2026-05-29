@@ -1427,7 +1427,7 @@ async def admin_reports_summary(user=Depends(get_admin_user)):
 
 @api_router.get("/")
 async def root():
-    return {"message": "Animitra API running", "version": "3.0.0"}
+    return {"message": "ANIMitra VET API running", "version": "3.0.0"}
 
 app.include_router(api_router)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,

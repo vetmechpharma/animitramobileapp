@@ -142,7 +142,7 @@ export default function RegisterScreen() {
             </TouchableOpacity>
             <View style={styles.logoRow}>
               <Text style={styles.logoEmoji}>🐾</Text>
-              <Text style={styles.appName}>Animitra</Text>
+              <Text style={styles.appName}>ANIMitra VET</Text>
             </View>
             <Text style={styles.pageTitle}>Create Account</Text>
             <Text style={styles.pageSubtitle}>Register as a licensed veterinarian</Text>
@@ -331,9 +331,9 @@ export default function RegisterScreen() {
 }
 
 const C = {
-  primary: '#2E7D32', bg: '#F6FBF6', surface: '#FFFFFF',
-  surfaceSecondary: '#E8F5E9', fill: '#EDF7EE', fillFocus: '#E0F0E1',
-  textPrimary: '#0A1F10', textSecondary: '#5A7060', border: '#D4EAD6'};
+  primary: '#006064', bg: '#F0FAFA', surface: '#FFFFFF',
+  surfaceSecondary: '#E0F2F1', fill: '#EDF7EE', fillFocus: '#E0F0E1',
+  textPrimary: '#0A1F10', textSecondary: '#5A7060', border: '#B2DFDB'};
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
   pageSubtitle: { fontSize: 14, color: C.textSecondary, marginTop: 4 },
   card: {
     backgroundColor: C.surface, borderRadius: 28, padding: 16,
-    boxShadow: '0px 3px 14px rgba(46,125,50,0.10)'},
+    boxShadow: '0px 3px 14px rgba(0,96,100,0.10)'},
   sectionTitle: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.textPrimary, marginBottom: 14 },
   inputWrapper: { marginBottom: 14 },
   label: { fontSize: 12, fontWeight: '600', fontFamily: 'Inter_600SemiBold', color: C.textSecondary, marginBottom: 7, letterSpacing: 0.3 },
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
   registerBtn: {
     height: 44, backgroundColor: C.primary, borderRadius: 20,
     justifyContent: 'center', alignItems: 'center', marginTop: 8,
-    boxShadow: '0px 4px 20px rgba(46,125,50,0.28)'},
+    boxShadow: '0px 4px 20px rgba(0,96,100,0.28)'},
   btnDisabled: { opacity: 0.65 },
   registerBtnText: { color: '#fff', fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: 0.3 },
   loginRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
   modalSheet: {
     backgroundColor: C.surface, borderTopLeftRadius: 32, borderTopRightRadius: 32,
     paddingHorizontal: 16, paddingBottom: 36, maxHeight: '78%'},
-  modalHandle: { width: 44, height: 4, backgroundColor: '#D0E8D2', borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 16 },
+  modalHandle: { width: 44, height: 4, backgroundColor: '#B2DFDB', borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 16 },
   modalTitle: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.textPrimary, marginBottom: 12, textAlign: 'center' },
   searchInput: {
     height: 44, borderRadius: 14, backgroundColor: C.fill,

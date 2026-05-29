@@ -4,8 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 const C = {
-  primary: '#2E7D32', bg: '#F6FBF6', surface: '#FFFFFF', fill: '#EDF7EE',
-  secondary: '#E8F5E9', text: '#0A1F10', sub: '#5A7060', border: '#D4EAD6'};
+  primary: '#006064', bg: '#F0FAFA', surface: '#FFFFFF', fill: '#EDF7EE',
+  secondary: '#E0F2F1', text: '#0A1F10', sub: '#5A7060', border: '#B2DFDB'};
 
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <View style={s.section}>
@@ -23,7 +23,7 @@ export default function AboutScreen() {
         <TouchableOpacity testID="about-back-btn" style={s.backBtn} onPress={() => router.back()}>
           <Text style={s.backBtnText}>‹ Back</Text>
         </TouchableOpacity>
-        <Text style={s.backTitle}>About Animitra</Text>
+        <Text style={s.backTitle}>About ANIMitra VET</Text>
         <View style={{ width: 60 }} />
       </View>
       <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -32,14 +32,14 @@ export default function AboutScreen() {
           <View style={s.logoCircle}>
             <Text style={s.logoEmoji}>🐾</Text>
           </View>
-          <Text style={s.appName}>Animitra</Text>
+          <Text style={s.appName}>ANIMitra VET</Text>
           <Text style={s.tagline}>Veterinary Practice Manager</Text>
           <Text style={s.version}>Version 1.0.0</Text>
         </View>
 
-        <Section title="About Animitra">
+        <Section title="About ANIMitra VET">
           <Text style={s.bodyText}>
-            Animitra is a comprehensive veterinary practice management app designed exclusively
+            ANIMitra VET is a comprehensive veterinary practice management app designed exclusively
             for licensed veterinarians in India. It helps vets manage their daily cases,
             patient records, earnings, and follow-ups — all in one place.
           </Text>
@@ -111,11 +111,11 @@ export default function AboutScreen() {
         <Section title="Terms & Conditions">
           <Text style={s.bodyText}>
             <Text style={s.bold}>1. Eligibility: </Text>
-            Animitra is available exclusively for licensed veterinarians registered with a State Veterinary Council in India.
+            ANIMitra VET is available exclusively for licensed veterinarians registered with a State Veterinary Council in India.
           </Text>
           <Text style={s.bodyText}>
             <Text style={s.bold}>2. Subscription: </Text>
-            One-time payment of ₹200 grants lifetime access to the current version of Animitra. Future major upgrades may require additional payment.
+            One-time payment of ₹200 grants lifetime access to the current version of ANIMitra VET. Future major upgrades may require additional payment.
           </Text>
           <Text style={s.bodyText}>
             <Text style={s.bold}>3. Data Privacy: </Text>
@@ -123,7 +123,7 @@ export default function AboutScreen() {
           </Text>
           <Text style={s.bodyText}>
             <Text style={s.bold}>4. Data Responsibility: </Text>
-            Animitra provides tools for record-keeping. The accuracy of clinical information entered is the sole responsibility of the veterinarian.
+            ANIMitra VET provides tools for record-keeping. The accuracy of clinical information entered is the sole responsibility of the veterinarian.
           </Text>
           <Text style={s.bodyText}>
             <Text style={s.bold}>5. Misuse: </Text>
@@ -140,15 +140,15 @@ export default function AboutScreen() {
         </Section>
 
         <Section title="Usage Guidelines">
-          <Text style={s.bodyText}>• Use Animitra only for legitimate veterinary practice management.</Text>
+          <Text style={s.bodyText}>• Use ANIMitra VET only for legitimate veterinary practice management.</Text>
           <Text style={s.bodyText}>• Do not share your login credentials with others.</Text>
           <Text style={s.bodyText}>• Each account is for one veterinarian only.</Text>
-          <Text style={s.bodyText}>• Case forwarding is only for registered Animitra vets.</Text>
+          <Text style={s.bodyText}>• Case forwarding is only for registered ANIMitra VET vets.</Text>
           <Text style={s.bodyText}>• Report any technical issues to our support team.</Text>
         </Section>
 
         <View style={s.footer}>
-          <Text style={s.footerText}>© 2026 Animitra. All rights reserved.</Text>
+          <Text style={s.footerText}>© 2026 ANIMitra VET. All rights reserved.</Text>
           <Text style={s.footerText}>Made with ❤️ for Indian Veterinarians</Text>
         </View>
       </ScrollView>

@@ -9,8 +9,8 @@ import { useAuth } from '../../contexts/AuthContext';
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
 const C = {
-  primary: '#2E7D32', bg: '#F6FBF6', surface: '#FFFFFF', fill: '#EDF7EE',
-  secondary: '#E8F5E9', text: '#0A1F10', sub: '#5A7060', border: '#D4EAD6',
+  primary: '#006064', bg: '#F0FAFA', surface: '#FFFFFF', fill: '#EDF7EE',
+  secondary: '#E0F2F1', text: '#0A1F10', sub: '#5A7060', border: '#B2DFDB',
   error: '#C62828', warning: '#E65100'};
 
 interface MenuItem {
@@ -97,7 +97,7 @@ export default function MoreScreen() {
       items: [
         { testID: 'more-reports', emoji: '📈', label: 'Reports & Analytics', sub: 'Animal-wise, visit-wise, forwards', route: '/(tabs)/reports' },
         { testID: 'more-export', emoji: '📊', label: 'Export My Clients', sub: 'Download client data as CSV, share WhatsApp', onPress: handleExportClients },
-        { testID: 'more-about', emoji: 'ℹ️', label: 'About ANIMitraVET', sub: 'Features, T&C, support contact', route: '/(tabs)/about' },
+        { testID: 'more-about', emoji: 'ℹ️', label: 'About ANIMitra VET', sub: 'Features, T&C, support contact', route: '/(tabs)/about' },
       ]},
     ...(isAdmin ? [{
       title: 'ADMIN',
@@ -190,9 +190,9 @@ export default function MoreScreen() {
         {/* App version */}
         <View style={s.footer}>
           <Text style={s.footerEmoji}>🐾</Text>
-          <Text style={s.footerName}>Animitra</Text>
+          <Text style={s.footerName}>ANIMitra VET</Text>
           <Text style={s.footerVersion}>Version 1.0.0 · Veterinary Practice Manager</Text>
-          <Text style={s.footerCopy}>© 2026 Animitra. All rights reserved.</Text>
+          <Text style={s.footerCopy}>© 2026 ANIMitra VET. All rights reserved.</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -228,7 +228,7 @@ const s = StyleSheet.create({
   sectionLabel: { fontSize: 11, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.sub, letterSpacing: 1, marginBottom: 8, marginLeft: 4 },
   sectionCard: {
     backgroundColor: C.surface, borderRadius: 18, overflow: 'hidden',
-    boxShadow: '0px 2px 10px rgba(46,125,50,0.07)'},
+    boxShadow: '0px 2px 10px rgba(0,96,100,0.07)'},
   menuItem: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 14 },
   menuItemBorder: { borderBottomWidth: 1, borderBottomColor: C.border },
   menuIconWrap: {

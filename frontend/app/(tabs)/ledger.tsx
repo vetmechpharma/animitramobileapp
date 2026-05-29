@@ -10,8 +10,8 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 const PAYMENT_MODES = ['Cash', 'GPay', 'Online', 'Cheque', 'Other'];
 
 const C = {
-  primary: '#2E7D32', bg: '#F6FBF6', surface: '#FFFFFF', fill: '#EDF7EE',
-  secondary: '#E8F5E9', text: '#0A1F10', sub: '#5A7060', border: '#D4EAD6',
+  primary: '#006064', bg: '#F0FAFA', surface: '#FFFFFF', fill: '#EDF7EE',
+  secondary: '#E0F2F1', text: '#0A1F10', sub: '#5A7060', border: '#B2DFDB',
   error: '#C62828', warning: '#E65100', blue: '#1565C0'};
 
 const PERIODS = [
@@ -340,7 +340,7 @@ const s = StyleSheet.create({
   emptyTitle: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', color: C.text, marginBottom: 4 },
   emptyText: { fontSize: 14, color: C.sub },
   // Farmer card
-  farmerCard: { backgroundColor: C.surface, borderRadius: 18, overflow: 'hidden', boxShadow: '0px 2px 10px rgba(46,125,50,0.07)' },
+  farmerCard: { backgroundColor: C.surface, borderRadius: 18, overflow: 'hidden', boxShadow: '0px 2px 10px rgba(0,96,100,0.07)' },
   farmerHeader: { padding: 16 },
   farmerInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   farmerAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFEBEE', justifyContent: 'center', alignItems: 'center' },

@@ -85,7 +85,7 @@ export default function DatePickerModal({ visible, date, onSelect, onClose }: Pr
   );
 }
 
-const C = { primary: '#2E7D32', surface: '#FFFFFF', secondary: '#E8F5E9', text: '#0A1F10', sub: '#4A5D4E', border: '#E0E8E1' };
+const C = { primary: '#006064', surface: '#FFFFFF', secondary: '#E0F2F1', text: '#0A1F10', sub: '#4A5D4E', border: '#E0E8E1' };
 
 const s = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', paddingHorizontal: 24 },

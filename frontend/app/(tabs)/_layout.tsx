@@ -14,10 +14,10 @@ function TabIcon({ emoji, label, focused }: { emoji: string; label: string; focu
 
 const s = StyleSheet.create({
   wrap: { alignItems: 'center', paddingHorizontal: 6, paddingVertical: 3, minWidth: 44 },
-  wrapActive: { backgroundColor: '#E8F5E9', borderRadius: 12 },
+  wrapActive: { backgroundColor: '#E0F2F1', borderRadius: 12 },
   emoji: { fontSize: 18 },
   emojiActive: { fontSize: 18 },
-  label: { fontSize: 9, color: '#2E7D32', fontFamily: 'Inter_700Bold', marginTop: 1 },
+  label: { fontSize: 9, color: '#006064', fontFamily: 'Inter_700Bold', marginTop: 1 },
 });
 
 export default function TabsLayout() {
@@ -34,7 +34,7 @@ export default function TabsLayout() {
       headerShown: false,
       tabBarStyle: {
         backgroundColor: '#FFFFFF',
-        borderTopColor: '#D0E8D2',
+        borderTopColor: '#B2DFDB',
         borderTopWidth: 1,
         height: tabBarHeight,
         paddingBottom: tabBarPaddingBottom,

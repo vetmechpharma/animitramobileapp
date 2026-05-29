@@ -8,7 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import QRCode from 'react-native-qrcode-svg';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-const UPI_STRING = 'upi://pay?pa=9486544884@kvb&pn=Animitra&am=200&cu=INR&tn=Animitra+Subscription';
+const UPI_STRING = 'upi://pay?pa=9486544884@kvb&pn=ANIMitra VET&am=200&cu=INR&tn=ANIMitra VET+Subscription';
 const UPI_ID = '9486544884@kvb';
 
 export default function ActivateScreen() {
@@ -65,7 +65,7 @@ export default function ActivateScreen() {
     setLoading(true);
     try {
       await activate(fullCode, token);
-      Alert.alert('🎉 Activated!', 'Your account is now active. Welcome to Animitra!', [
+      Alert.alert('🎉 Activated!', 'Your account is now active. Welcome to ANIMitra VET!', [
         { text: 'Continue', onPress: () => router.replace('/(tabs)/dashboard') }
       ]);
     } catch (e: any) {
@@ -105,7 +105,7 @@ export default function ActivateScreen() {
           {/* Logo */}
           <View style={styles.logoSection}>
             <View style={styles.logoCircle}><Text style={styles.logoEmoji}>🐾</Text></View>
-            <Text style={styles.appName}>Animitra</Text>
+            <Text style={styles.appName}>ANIMitra VET</Text>
           </View>
 
           {/* Section Toggle */}
@@ -162,13 +162,13 @@ export default function ActivateScreen() {
             <View style={styles.card}>
               <Text style={styles.planBadge}>🌟 LIFETIME ACCESS</Text>
               <Text style={styles.planPrice}>₹200 <Text style={styles.planPriceSmall}>one-time</Text></Text>
-              <Text style={styles.planDesc}>Full access to Animitra — case management, ledger, reports, and more. Pay once, use forever.</Text>
+              <Text style={styles.planDesc}>Full access to ANIMitra VET — case management, ledger, reports, and more. Pay once, use forever.</Text>
 
               {/* UPI QR Code */}
               <View style={styles.qrCard}>
                 <Text style={styles.qrLabel}>Scan to Pay via UPI</Text>
                 <View style={styles.qrBox}>
-                  <QRCode value={UPI_STRING} size={180} color="#2E7D32" backgroundColor="#FFFFFF" />
+                  <QRCode value={UPI_STRING} size={180} color="#006064" backgroundColor="#FFFFFF" />
                 </View>
                 <Text style={styles.upiId}>UPI ID: <Text style={styles.upiIdValue}>{UPI_ID}</Text></Text>
                 <Text style={styles.upiNote}>Works with GPay, PhonePe, Paytm, BHIM & all UPI apps</Text>
@@ -215,10 +215,10 @@ export default function ActivateScreen() {
 }
 
 const C = {
-  primary: '#2E7D32', primaryLight: '#4CAF50',
-  bg: '#F6FBF6', surface: '#FFFFFF', surfaceSecondary: '#E8F5E9',
+  primary: '#006064', primaryLight: '#00838F',
+  bg: '#F0FAFA', surface: '#FFFFFF', surfaceSecondary: '#E0F2F1',
   fill: '#EDF7EE', fillFocus: '#E0F0E1',
-  textPrimary: '#0A1F10', textSecondary: '#5A7060', border: '#D4EAD6'};
+  textPrimary: '#0A1F10', textSecondary: '#5A7060', border: '#B2DFDB'};
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
@@ -230,12 +230,12 @@ const styles = StyleSheet.create({
   // Section toggle
   toggleRow: { flexDirection: 'row', backgroundColor: C.fill, borderRadius: 14, padding: 4, marginBottom: 16 },
   toggleBtn: { flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center' },
-  toggleBtnActive: { backgroundColor: C.surface, boxShadow: '0px 2px 10px rgba(46,125,50,0.07)' },
+  toggleBtnActive: { backgroundColor: C.surface, boxShadow: '0px 2px 10px rgba(0,96,100,0.07)' },
   toggleText: { fontSize: 13, fontWeight: '600', fontFamily: 'Inter_600SemiBold', color: C.textSecondary },
   toggleTextActive: { color: C.primary },
   card: {
     backgroundColor: C.surface, borderRadius: 28, padding: 16,
-    boxShadow: '0px 3px 14px rgba(46,125,50,0.10)', alignItems: 'center'},
+    boxShadow: '0px 3px 14px rgba(0,96,100,0.10)', alignItems: 'center'},
   welcomeEmoji: { fontSize: 48, marginBottom: 12 },
   title: { fontSize: 21, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: C.textPrimary, textAlign: 'center', marginBottom: 8 },
   subtitle: { fontSize: 14, color: C.textSecondary, textAlign: 'center', lineHeight: 21, marginBottom: 28 },
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
   activateBtn: {
     width: '100%', height: 44, backgroundColor: C.primary, borderRadius: 20,
     justifyContent: 'center', alignItems: 'center', marginTop: 4,
-    boxShadow: '0px 4px 20px rgba(46,125,50,0.28)'},
+    boxShadow: '0px 4px 20px rgba(0,96,100,0.28)'},
   btnDisabled: { opacity: 0.45 },
   activateBtnText: { color: '#fff', fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: 0.3 },
   helpText: { fontSize: 13, color: C.textSecondary, textAlign: 'center', lineHeight: 20, marginTop: 14 },

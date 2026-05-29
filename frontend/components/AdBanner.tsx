@@ -72,7 +72,7 @@ export default function AdBanner({ token, backendUrl }: BannerProps) {
           <TouchableOpacity testID="banner-click" activeOpacity={0.9} onPress={handleClick}>
             {imgLoading && (
               <View style={s.imgPlaceholder}>
-                <ActivityIndicator color="#2E7D32" />
+                <ActivityIndicator color="#006064" />
               </View>
             )}
             <Image
@@ -117,10 +117,10 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center',
   },
   closeBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  bannerImg: { width: '100%', height: width * 0.55, backgroundColor: '#F4F9F4' },
+  bannerImg: { width: '100%', height: width * 0.55, backgroundColor: '#F0FAFA' },
   imgPlaceholder: {
     width: '100%', height: width * 0.55,
-    backgroundColor: '#F4F9F4', justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#F0FAFA', justifyContent: 'center', alignItems: 'center',
   },
   title: {
     fontSize: 15, fontFamily: 'Inter_700Bold', color: '#1A2E1C',
@@ -128,7 +128,7 @@ const s = StyleSheet.create({
   },
   ctaBtn: {
     marginHorizontal: 20, marginTop: 10, marginBottom: 6,
-    backgroundColor: '#2E7D32', borderRadius: 12, paddingVertical: 10,
+    backgroundColor: '#006064', borderRadius: 12, paddingVertical: 10,
     alignItems: 'center',
   },
   ctaBtnText: { color: '#fff', fontFamily: 'Inter_700Bold', fontSize: 14 },

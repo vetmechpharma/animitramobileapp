@@ -10,8 +10,8 @@ import * as ImagePicker from 'expo-image-picker';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 const C = {
-  primary: '#2E7D32', bg: '#F6FBF6', surface: '#FFFFFF', fill: '#EDF7EE',
-  secondary: '#E8F5E9', text: '#0A1F10', sub: '#5A7060', border: '#D4EAD6',
+  primary: '#006064', bg: '#F0FAFA', surface: '#FFFFFF', fill: '#EDF7EE',
+  secondary: '#E0F2F1', text: '#0A1F10', sub: '#5A7060', border: '#B2DFDB',
   error: '#C62828', warning: '#E65100', blue: '#1565C0'};
 
 const ADMIN_TABS = [
@@ -328,7 +328,7 @@ export default function AdminScreen() {
                           <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 11, color: C.sub, marginTop: 2 }} numberOfLines={1}>🔗 {b.link_url}</Text>
                           <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 11, color: C.sub, marginTop: 1 }} numberOfLines={1}>🖼 {b.image_url}</Text>
                         </View>
-                        <View style={[{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }, b.is_active ? { backgroundColor: '#E8F5E9' } : { backgroundColor: '#F5F5F5' }]}>
+                        <View style={[{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }, b.is_active ? { backgroundColor: '#E0F2F1' } : { backgroundColor: '#F5F5F5' }]}>
                           <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 11, color: b.is_active ? C.primary : C.sub }}>
                             {b.is_active ? '● LIVE' : '○ OFF'}
                           </Text>
@@ -458,7 +458,7 @@ export default function AdminScreen() {
                       const csv = await r.text();
                       await Share.share({
                         message: csv,
-                        title: 'Animitra Owner Data Export'});
+                        title: 'ANIMitra VET Owner Data Export'});
                     } catch(e) { Alert.alert('Error', 'Could not export data'); }
                   }}>
                   <Text style={s.exportBtnText}>📤 Export & Share via WhatsApp</Text>
@@ -469,7 +469,7 @@ export default function AdminScreen() {
                 {(perfView === 'cases' ? performers.by_cases : performers.by_earnings).map((v, i) => (
                   <View key={v.id} style={[s.card, {marginBottom:8}]}>
                     <View style={{flexDirection:'row', alignItems:'center', gap:10}}>
-                      <View style={{width:28,height:28,borderRadius:14,backgroundColor:i<3?'#FFD700':'#E8F5E9',justifyContent:'center',alignItems:'center'}}>
+                      <View style={{width:28,height:28,borderRadius:14,backgroundColor:i<3?'#FFD700':'#E0F2F1',justifyContent:'center',alignItems:'center'}}>
                         <Text style={{fontFamily:'Inter_800ExtraBold',fontSize:13,color:i<3?'#795548':C.primary}}>#{i+1}</Text>
                       </View>
                       <View style={{flex:1}}>
@@ -595,8 +595,8 @@ export default function AdminScreen() {
                   const { Share: RNShare } = require('react-native');
                   try {
                     await RNShare.share({
-                      message: `ANIMitraVET Login\nMobile: ${resetPwdResult?.mobile}\nNew Password: ${resetPwdResult?.password}\n\nDownload: https://app.vetmechpharma.in`,
-                      title: 'ANIMitraVET Login Details',
+                      message: `ANIMitra VET Login\nMobile: ${resetPwdResult?.mobile}\nNew Password: ${resetPwdResult?.password}\n\nDownload: https://app.vetmechpharma.in`,
+                      title: 'ANIMitra VET Login Details',
                     });
                   } catch (e) {}
                 }}>

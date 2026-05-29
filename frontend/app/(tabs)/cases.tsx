@@ -12,8 +12,8 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 const PAYMENT_MODES = ['Cash', 'GPay', 'Online', 'Cheque', 'Other'];
 
 const C = {
-  primary: '#2E7D32', bg: '#F4F9F4', surface: '#FFFFFF', fill: '#EBF5EC',
-  secondary: '#E8F5E9', text: '#1A2E1C', sub: '#4B6352', border: '#D0E8D2',
+  primary: '#006064', bg: '#F0FAFA', surface: '#FFFFFF', fill: '#E0F2F1',
+  secondary: '#E0F2F1', text: '#1A2E1C', sub: '#4B6352', border: '#B2DFDB',
   warning: '#E65100', error: '#C62828', blue: '#1565C0', muted: '#8FA891',
 };
 
@@ -44,7 +44,7 @@ function formatDate(iso: string): string {
 const statusBadge = (c: Case) => {
   if (c.status === 'closed') {
     return c.is_paid
-      ? { label: '✓ Paid', bg: '#E8F5E9', text: C.primary }
+      ? { label: '✓ Paid', bg: '#E0F2F1', text: C.primary }
       : { label: '⚡ Unpaid', bg: '#FFF8E1', text: C.warning };
   }
   if (c.status === 'pending') return { label: '⚠️ Overdue', bg: '#FFF3E0', text: C.warning };
@@ -575,7 +575,7 @@ export default function CasesScreen() {
               </>
             )}
 
-            <Text style={styles.label}>DOCTOR'S MOBILE (Animitra registered)</Text>
+            <Text style={styles.label}>DOCTOR'S MOBILE (ANIMitra VET registered)</Text>
             <TextInput style={styles.input} placeholder="10-digit mobile number" placeholderTextColor="#9EB09F"
               keyboardType="phone-pad" value={forwardMobile}
               onChangeText={v => setForwardMobile(v.replace(/\D/g, '').slice(0, 10))} maxLength={10} />
@@ -779,7 +779,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: C.surface, borderRadius: 16, padding: 14,
     borderWidth: 1, borderColor: C.border,
-    boxShadow: '0px 2px 8px rgba(46,125,50,0.06)',
+    boxShadow: '0px 2px 8px rgba(0,96,100,0.06)',
   },
   cardPaid: { borderLeftWidth: 3, borderLeftColor: C.primary },
   cardUnpaid: { borderLeftWidth: 3, borderLeftColor: C.warning },
@@ -826,7 +826,7 @@ const styles = StyleSheet.create({
   toggleWarn: { backgroundColor: C.warning, borderColor: C.warning },
   toggleText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: C.text },
   payOption: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.fill, borderRadius: 12, padding: 11, borderWidth: 1.5, borderColor: 'transparent' },
-  payOptionActive: { borderColor: C.primary, backgroundColor: '#E4F0E6' },
+  payOptionActive: { borderColor: C.primary, backgroundColor: '#E0F2F1' },
   payOptionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: C.text, flex: 1 },
   radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: C.border, justifyContent: 'center', alignItems: 'center' },
   radioActive: { borderColor: C.primary },

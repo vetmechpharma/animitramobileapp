@@ -18,10 +18,10 @@ const VISIT_REASONS = ['Vaccination', 'Check-up', 'Treatment', 'Emergency', 'Sur
 const PAYMENT_MODES = ['Cash', 'GPay', 'Online', 'Cheque', 'Other'];
 
 const C = {
-  primary: '#2E7D32', primaryLight: '#4CAF50', primaryDark: '#1B5E20',
-  bg: '#F4F9F4', surface: '#FFFFFF', fill: '#EBF5EC', fillDark: '#D6EDD8',
+  primary: '#006064', primaryLight: '#00838F', primaryDark: '#004D40',
+  bg: '#F0FAFA', surface: '#FFFFFF', fill: '#E0F2F1', fillDark: '#D6EDD8',
   text: '#1A2E1C', sub: '#4B6352', muted: '#8FA891',
-  border: '#D0E8D2', borderLight: '#E8F5EA',
+  border: '#B2DFDB', borderLight: '#E8F5EA',
   warning: '#E65100', error: '#C62828', blue: '#1565C0'};
 
 // Inter font helpers
@@ -57,7 +57,7 @@ interface Case {
 }
 
 const STAT_CARDS = [
-  { key: 'today_cases', label: "Today's Cases", emoji: '🩺', color: '#E8F5E9', num: '#2E7D32' },
+  { key: 'today_cases', label: "Today's Cases", emoji: '🩺', color: '#E0F2F1', num: '#006064' },
   { key: 'upcoming_cases', label: 'Upcoming', emoji: '📅', color: '#E3F2FD', num: C.blue },
   { key: 'today_earnings', label: "Today's Earnings", emoji: '💰', color: '#FFF8E1', num: C.warning, money: true },
   { key: 'total_earnings', label: 'Total Earnings', emoji: '📈', color: '#F3E5F5', num: '#6A1B9A', money: true },
@@ -984,13 +984,13 @@ const styles = StyleSheet.create({
   refreshBtn: { fontSize: 13, color: C.primaryLight, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   loadBox: { paddingVertical: 32, alignItems: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16, gap: 10, marginBottom: 20 },
-  card: { width: '47%', borderRadius: 18, padding: 16, minHeight: 110, borderWidth: 1, borderColor: C.border, boxShadow: '0px 2px 10px rgba(46,125,50,0.07)' },
+  card: { width: '47%', borderRadius: 18, padding: 16, minHeight: 110, borderWidth: 1, borderColor: C.border, boxShadow: '0px 2px 10px rgba(0,96,100,0.07)' },
   emojiWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.7)', justifyContent: 'center', alignItems: 'center', marginBottom: 6 },
   statNum: { fontSize: 14, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', marginBottom: 2 },
   statLabel: { fontSize: 12, fontWeight: '500', fontFamily: 'Inter_500Medium', color: C.sub, lineHeight: 16 },
   // Cases
   caseList: { paddingHorizontal: 16, gap: 10, marginBottom: 20 },
-  caseCard: { backgroundColor: C.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: C.border, boxShadow: '0px 2px 10px rgba(46,125,50,0.07)' },
+  caseCard: { backgroundColor: C.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: C.border, boxShadow: '0px 2px 10px rgba(0,96,100,0.07)' },
   forwardBadge: { backgroundColor: '#E3F2FD', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, marginBottom: 8, alignSelf: 'flex-start' },
   forwardText: { fontSize: 11, color: C.blue, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   caseRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
@@ -1020,7 +1020,7 @@ const styles = StyleSheet.create({
   upcomingMeta: { fontSize: 12, color: C.sub },
   miniCallBtn: { padding: 6 },
   // FAB
-  fabWrap: { position: 'absolute', bottom: 24, right: 20, boxShadow: '0px 4px 16px rgba(46,125,50,0.38)' },
+  fabWrap: { position: 'absolute', bottom: 24, right: 20, boxShadow: '0px 4px 16px rgba(0,96,100,0.38)' },
   fab: { width: 56, height: 56, borderRadius: 28, backgroundColor: C.primary, justifyContent: 'center', alignItems: 'center' },
   fabIcon: { fontSize: 30, color: '#fff', lineHeight: 34 },
   fabLabel: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#fff' },
@@ -1065,7 +1065,7 @@ const styles = StyleSheet.create({
   farmerSugMeta: { fontSize: 12, color: C.sub, marginTop: 2 },
   farmerSugArrow: { fontSize: 14, color: C.primary },
   autoFilledBanner: {
-    backgroundColor: '#E8F5E9', borderRadius: 10, padding: 10, marginBottom: 8,
+    backgroundColor: '#E0F2F1', borderRadius: 10, padding: 10, marginBottom: 8,
     borderLeftWidth: 3, borderLeftColor: C.primary},
   autoFilledText: { fontSize: 13, color: C.primary, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   rowInputs: { flexDirection: 'row' },
