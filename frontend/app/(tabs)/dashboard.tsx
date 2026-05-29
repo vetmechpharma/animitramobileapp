@@ -1022,7 +1022,7 @@ const styles = StyleSheet.create({
   miniCallBtn: { padding: 6 },
   // FAB
   fabWrap: { position: 'absolute', bottom: 24, right: 20, boxShadow: '0px 4px 16px rgba(0,96,100,0.38)' },
-  fab: { width: 56, height: 56, borderRadius: 28, backgroundColor: C.primary, justifyContent: 'center', alignItems: 'center' },
+  fab: { width: 56, height: 56, borderRadius: 10, backgroundColor: C.primary, justifyContent: 'center', alignItems: 'center' },
   fabIcon: { fontSize: 30, color: '#fff', lineHeight: 34 },
   fabLabel: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: '#fff' },
   // Modal
