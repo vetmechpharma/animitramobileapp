@@ -133,6 +133,10 @@ export default function DashboardScreen() {
         fetch(`${BACKEND_URL}/api/cases/today`, { headers: h }).then(r => r.json()),
         fetch(`${BACKEND_URL}/api/cases/upcoming`, { headers: h }).then(r => r.json()),
       ]);
+      // Auto-logout if any response indicates expired token
+      if (s?.detail === 'Not authenticated' || t?.detail === 'Not authenticated') {
+        await logout(); router.replace('/'); return;
+      }
       setStats(s); setTodayCases(t.cases || []); setUpcomingCases(u.cases || []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); setRefreshing(false); }
@@ -271,9 +275,15 @@ export default function DashboardScreen() {
 
   const saveQuickAdd = async () => {
     if (!quickForm.owner_name || !quickForm.mobile || !quickForm.animal_type || !quickForm.visit_reason) {
-      Alert.alert('Required', 'Please fill owner name, mobile, animal type and visit reason'); return;
+      Alert.alert('Required', 'Please fill:\n• Owner Name\n• Mobile Number\n• Animal Type\n• Visit Reason'); return;
     }
-    if (quickForm.mobile.length < 10) { Alert.alert('Invalid', 'Enter a valid 10-digit mobile number'); return; }
+    if (quickForm.mobile.length < 10) { Alert.alert('Invalid Mobile', 'Enter a valid 10-digit mobile number'); return; }
+    // Check token exists
+    if (!token) {
+      Alert.alert('Session Expired', 'Your session has expired. Please login again.', [
+        { text: 'Login', onPress: async () => { await logout(); router.replace('/'); } }
+      ]); return;
+    }
     setQuickSaving(true);
     try {
       const visitDateStr = visitDate.toISOString().split('T')[0];
@@ -282,10 +292,24 @@ export default function DashboardScreen() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ...quickForm, visit_date: visitDateStr, opening_balance: parseFloat(quickForm.opening_balance) || 0 })});
       const d = await res.json();
-      if (!res.ok) throw new Error(d.detail || 'Failed');
+      if (res.status === 401) {
+        // Token expired — auto logout
+        Alert.alert('Session Expired', 'Your session has expired. Please login again to continue.', [
+          { text: 'Login Now', onPress: async () => { await logout(); router.replace('/'); } }
+        ]); return;
+      }
+      if (!res.ok) throw new Error(d.detail || 'Failed to save case');
       setShowQuickAdd(false); fetchAll();
       Alert.alert('✅ Case Added!', `${quickForm.animal_type} case for ${quickForm.owner_name} saved.`);
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) {
+      if (e.message?.includes('401') || e.message === 'Not authenticated') {
+        Alert.alert('Session Expired', 'Please login again.', [
+          { text: 'Login', onPress: async () => { await logout(); router.replace('/'); } }
+        ]);
+      } else {
+        Alert.alert('Save Failed', e.message || 'Could not save case. Check your internet connection.');
+      }
+    }
     finally { setQuickSaving(false); }
   };
 
