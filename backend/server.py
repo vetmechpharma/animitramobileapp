@@ -90,6 +90,7 @@ def fmt_case(c: dict) -> dict:
         "follow_up_date": c["follow_up_date"].isoformat() if c.get("follow_up_date") else None,
         "forwarded_to_name": c.get("forwarded_to_name", ""),
         "forwarded_from": c.get("forwarded_from", ""),
+        "case_details": c.get("case_details", ""),
         "created_at": c["created_at"].isoformat(),
     }
 
@@ -264,13 +265,14 @@ class QuickCaseRequest(BaseModel):
     opening_balance: Optional[float] = 0.0  # Previous pending amount
 
 class CloseCaseRequest(BaseModel):
-    treatment_status: str = "treated"   # "treated" | "not_treated"
+    treatment_status: str = "treated"
     amount: float = 0.0
-    payment_status: str = "not_paid"    # "full" | "partial" | "not_paid"
+    payment_status: str = "not_paid"
     payment_mode: Optional[str] = None
-    paid_amount: float = 0.0            # actual cash received (for partial)
+    paid_amount: float = 0.0
     follow_up_date: Optional[str] = None
     follow_up_reason: Optional[str] = ""
+    case_details: Optional[str] = ""   # symptoms + treatment notes
 
 class MarkPaidRequest(BaseModel):
     amount: float
@@ -584,6 +586,48 @@ async def closed_cases(user=Depends(get_current_user), skip: int = 0, limit: int
     total = await db.cases.count_documents(q)
     return {"cases": [fmt_case(c) async for c in cursor], "total": total}
 
+@api_router.get("/clients/search")
+async def search_clients(q: str = "", user=Depends(get_current_user)):
+    """Search clients by name or mobile number."""
+    if not q or len(q) < 2:
+        return {"clients": []}
+    if q.isdigit():
+        match = {"vet_id": user["id"], "mobile": {"$regex": q}, "is_opening_balance": {"$ne": True}}
+    else:
+        match = {"vet_id": user["id"], "owner_name": {"$regex": q, "$options": "i"}, "is_opening_balance": {"$ne": True}}
+    pipeline = [
+        {"$match": match},
+        {"$group": {
+            "_id": "$mobile",
+            "owner_name": {"$first": "$owner_name"},
+            "mobile": {"$first": "$mobile"},
+            "village_name": {"$first": "$village_name"},
+            "animal_types": {"$addToSet": "$animal_type"},
+            "total_cases": {"$sum": 1},
+            "last_visit": {"$max": "$visit_date"},
+        }},
+        {"$sort": {"last_visit": -1}},
+        {"$limit": 30},
+    ]
+    results = await db.cases.aggregate(pipeline).to_list(30)
+    clients = []
+    for r in results:
+        outstanding_agg = await db.cases.aggregate([
+            {"$match": {"vet_id": user["id"], "mobile": r["_id"], "is_paid": False, "amount": {"$gt": 0}}},
+            {"$group": {"_id": None, "total": {"$sum": {"$subtract": ["$amount", "$paid_amount"]}}}}
+        ]).to_list(1)
+        clients.append({
+            "mobile": r["_id"],
+            "owner_name": r["owner_name"],
+            "village_name": r.get("village_name", ""),
+            "animal_types": list(r.get("animal_types", [])),
+            "total_cases": r["total_cases"],
+            "last_visit": r["last_visit"].isoformat() if r.get("last_visit") else None,
+            "outstanding": round(outstanding_agg[0]["total"], 2) if outstanding_agg else 0,
+        })
+    return {"clients": clients}
+
+
 @api_router.get("/cases/client/{mobile}")
 async def client_case_history(mobile: str, user=Depends(get_current_user)):
     """All cases for a specific client (by mobile), for this vet only."""
@@ -656,6 +700,7 @@ async def close_case(case_id: str, data: CloseCaseRequest, user=Depends(get_curr
     update: dict = {
         "status": "closed",
         "treatment_status": data.treatment_status,
+        "case_details": data.case_details or "",
         "updated_at": now,
     }
 

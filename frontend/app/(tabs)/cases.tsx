@@ -68,6 +68,7 @@ export default function CasesScreen() {
   const [followUpReason, setFollowUpReason] = useState('');
   const [showFUPicker, setShowFUPicker] = useState(false);
   const [closeSaving, setCloseSaving] = useState(false);
+  const [caseDetails, setCaseDetails] = useState(''); // symptoms + treatment notes
 
   // Forward
   const [forwardCase, setForwardCase] = useState<Case | null>(null);
@@ -76,7 +77,11 @@ export default function CasesScreen() {
   const [forwarding, setForwarding] = useState(false);
   const [forwardHistory, setForwardHistory] = useState<{ name: string; mobile: string; forward_count: number }[]>([]);
 
-  // Client outstanding + history
+  // Search clients
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
   const [clientHistory, setClientHistory] = useState<{ cases: Case[]; outstanding: number; total: number } | null>(null);
   const [showClientHistory, setShowClientHistory] = useState(false);
   const [closeClientOutstanding, setCloseClientOutstanding] = useState(0);
@@ -91,6 +96,20 @@ export default function CasesScreen() {
       setClientHistory(d);
       setShowClientHistory(true);
     } catch (e) {}
+  };
+
+  const doSearch = async (q: string) => {
+    setSearchQuery(q);
+    if (q.length < 2) { setSearchResults([]); return; }
+    setSearching(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/clients/search?q=${encodeURIComponent(q)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const d = await res.json();
+      setSearchResults(d.clients || []);
+    } catch (e) { setSearchResults([]); }
+    finally { setSearching(false); }
   };
   const [editCase, setEditCase] = useState<Case | null>(null);
   const [editNotes, setEditNotes] = useState('');
@@ -130,7 +149,7 @@ export default function CasesScreen() {
   const openClose = async (c: Case) => {
     setCloseCase(c);
     setCloseForm({ treatment_status: 'treated', amount: c.amount ? `${c.amount}` : '', payment_status: 'full', payment_mode: 'Cash', paid_amount: '' });
-    setShowFollowUp(false); setFollowUpReason('');
+    setShowFollowUp(false); setFollowUpReason(''); setCaseDetails('');
     // Fetch client's outstanding amount for warning
     if (token) {
       try {
@@ -165,6 +184,7 @@ export default function CasesScreen() {
           paid_amount: payment_status === 'partial' ? parseFloat(paid_amount) || 0 : (payment_status === 'full' ? parseFloat(amount) || 0 : 0),
           follow_up_date: showFollowUp ? followUpDate.toISOString().split('T')[0] : null,
           follow_up_reason: showFollowUp ? followUpReason.trim() || 'Follow-up' : '',
+          case_details: caseDetails.trim(),
         }),
       });
       if (!res.ok) throw new Error('Failed');
@@ -337,17 +357,23 @@ export default function CasesScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      {/* Tab bar */}
-      <View style={styles.tabBar}>
-        {TABS.map(t => (
-          <TouchableOpacity key={t.key} testID={`tab-${t.key}`}
-            style={[styles.tab, activeTab === t.key && styles.tabActive]}
-            onPress={() => setActiveTab(t.key)}>
-            <Text style={[styles.tabText, activeTab === t.key && styles.tabTextActive]}>
-              {t.emoji} {t.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      {/* Tab bar with Search button */}
+      <View style={styles.topBar}>
+        <View style={styles.tabBar}>
+          {TABS.map(t => (
+            <TouchableOpacity key={t.key} testID={`tab-${t.key}`}
+              style={[styles.tab, activeTab === t.key && styles.tabActive]}
+              onPress={() => setActiveTab(t.key)}>
+              <Text style={[styles.tabText, activeTab === t.key && styles.tabTextActive]}>
+                {t.emoji} {t.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TouchableOpacity testID="open-search-btn" style={styles.searchIconBtn}
+          onPress={() => { setShowSearch(true); setSearchQuery(''); setSearchResults([]); }}>
+          <Text style={styles.searchIconText}>🔍</Text>
+        </TouchableOpacity>
       </View>
 
       {loading && !refreshing ? (
@@ -477,6 +503,20 @@ export default function CasesScreen() {
                 </>
               )}
 
+              {/* Case Details — Symptoms / Treatment (optional) */}
+              <Text style={[styles.label, { marginTop: 12 }]}>
+                CASE DETAILS <Text style={{ color: C.muted, fontWeight: '400', letterSpacing: 0 }}>Optional — Symptoms, treatment done</Text>
+              </Text>
+              <TextInput
+                testID="case-details-input"
+                style={[styles.input, { height: 80, paddingTop: 10, textAlignVertical: 'top' }]}
+                placeholder="e.g. Fever, limping — Injected antibiotics, applied bandage..."
+                placeholderTextColor="#9EB09F"
+                multiline
+                value={caseDetails}
+                onChangeText={setCaseDetails}
+              />
+
               <TouchableOpacity style={[styles.saveBtn, closeSaving && { opacity: 0.6 }]}
                 onPress={saveClose} disabled={closeSaving}>
                 {closeSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>✅ Confirm & Close</Text>}
@@ -584,6 +624,75 @@ export default function CasesScreen() {
           </View>
         </View>
       </Modal>
+      {/* Search Modal */}
+      <Modal visible={showSearch} transparent animationType="slide" onRequestClose={() => setShowSearch(false)}>
+        <View style={styles.overlay}>
+          <View style={[styles.sheet, { maxHeight: '90%' }]}>
+            <View style={styles.handle} />
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>🔍 Search Clients</Text>
+              <TouchableOpacity style={styles.xBtn} onPress={() => setShowSearch(false)}>
+                <Text style={styles.xText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              testID="client-search-input"
+              style={[styles.input, { marginBottom: 12 }]}
+              placeholder="Type name or mobile number..."
+              placeholderTextColor="#9EB09F"
+              value={searchQuery}
+              onChangeText={doSearch}
+              autoFocus
+              keyboardType={searchQuery.length > 0 && /^\d+$/.test(searchQuery) ? 'phone-pad' : 'default'}
+            />
+            {searching && <ActivityIndicator color={C.primary} style={{ marginBottom: 8 }} />}
+            {searchResults.length === 0 && searchQuery.length >= 2 && !searching && (
+              <View style={styles.emptyBox}><Text style={styles.emptyText}>No clients found for "{searchQuery}"</Text></View>
+            )}
+            <FlatList
+              data={searchResults}
+              keyExtractor={c => c.mobile}
+              style={{ maxHeight: 420 }}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item: cl }) => (
+                <TouchableOpacity
+                  testID={`search-result-${cl.mobile}`}
+                  style={styles.searchResultCard}
+                  onPress={() => { viewClientHistory(cl.mobile); setShowSearch(false); }}
+                >
+                  <View style={styles.searchResultAvatar}>
+                    <Text style={styles.searchResultAvatarText}>{cl.owner_name[0]?.toUpperCase()}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.searchResultName}>{cl.owner_name}</Text>
+                    <Text style={styles.searchResultMeta}>
+                      📞 {cl.mobile}{cl.village_name ? ` · 📍 ${cl.village_name}` : ''}
+                    </Text>
+                    <Text style={styles.searchResultStats}>
+                      {cl.total_cases} visit{cl.total_cases !== 1 ? 's' : ''}
+                      {cl.last_visit ? ` · Last: ${new Date(cl.last_visit).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}` : ''}
+                      {cl.animal_types?.length > 0 ? ` · ${cl.animal_types.slice(0, 2).join(', ')}` : ''}
+                    </Text>
+                  </View>
+                  {cl.outstanding > 0 && (
+                    <Text style={styles.searchResultOutstanding}>₹{cl.outstanding.toLocaleString('en-IN')}</Text>
+                  )}
+                  <Text style={{ fontSize: 18, color: C.sub }}>›</Text>
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={searchQuery.length < 2 ? (
+                <View style={{ alignItems: 'center', padding: 20 }}>
+                  <Text style={{ fontSize: 32, marginBottom: 8 }}>🔍</Text>
+                  <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: C.sub, textAlign: 'center' }}>
+                    Search by client name or mobile number{'\n'}to view their complete visit history
+                  </Text>
+                </View>
+              ) : null}
+            />
+          </View>
+        </View>
+      </Modal>
+
       {/* Client History Modal */}
       <Modal visible={showClientHistory} transparent animationType="slide" onRequestClose={() => setShowClientHistory(false)}>
         <View style={styles.overlay}>
@@ -625,6 +734,12 @@ export default function CasesScreen() {
                     </Text>
                   </Text>
                   {ch.notes ? <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 11, color: C.muted, marginTop: 2, fontStyle: 'italic' }}>📝 {ch.notes}</Text> : null}
+                  {(ch as any).case_details ? (
+                    <View style={{ backgroundColor: '#F3E5F5', borderRadius: 8, padding: 8, marginTop: 4 }}>
+                      <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 11, color: '#6A1B9A', marginBottom: 2 }}>🔬 Clinical Details:</Text>
+                      <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: '#4A148C' }}>{(ch as any).case_details}</Text>
+                    </View>
+                  ) : null}
                 </View>
               )}
               ListEmptyComponent={<Text style={{ textAlign: 'center', padding: 20, color: C.sub, fontFamily: 'Inter_400Regular' }}>No case history found</Text>}
@@ -642,11 +757,12 @@ export default function CasesScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 },
-  // Tab bar
-  tabBar: {
-    flexDirection: 'row', backgroundColor: C.surface,
-    borderBottomWidth: 1, borderBottomColor: C.border,
-  },
+  // Top bar with search button
+  topBar: { flexDirection: 'row', alignItems: 'stretch', backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border },
+  searchIconBtn: { paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center', borderLeftWidth: 1, borderLeftColor: C.border },
+  searchIconText: { fontSize: 20 },
+  // Tab bar (inside topBar)
+  tabBar: { flex: 1, flexDirection: 'row' },
   tab: {
     flex: 1, paddingVertical: 10, alignItems: 'center',
     borderBottomWidth: 2.5, borderBottomColor: 'transparent',
@@ -731,4 +847,12 @@ const styles = StyleSheet.create({
   reasonChip: { paddingHorizontal: 11, paddingVertical: 6, borderRadius: 50, backgroundColor: C.fill },
   reasonChipSel: { backgroundColor: C.primary },
   reasonChipText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: C.text },
+  // Search result styles
+  searchResultCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border },
+  searchResultAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#E3F2FD', justifyContent: 'center', alignItems: 'center' },
+  searchResultAvatarText: { fontFamily: 'Inter_800ExtraBold', fontSize: 16, color: C.blue },
+  searchResultName: { fontFamily: 'Inter_700Bold', fontSize: 15, color: C.text },
+  searchResultMeta: { fontFamily: 'Inter_400Regular', fontSize: 12, color: C.sub, marginTop: 2 },
+  searchResultStats: { fontFamily: 'Inter_400Regular', fontSize: 11, color: C.muted, marginTop: 1 },
+  searchResultOutstanding: { fontFamily: 'Inter_800ExtraBold', fontSize: 14, color: C.error },
 });
