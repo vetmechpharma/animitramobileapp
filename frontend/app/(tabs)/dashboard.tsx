@@ -60,12 +60,12 @@ interface Case {
 }
 
 const STAT_CARDS = [
-  { key: 'today_cases', label: "Today's Cases", emoji: '🩺', color: '#E0F2F1', num: '#006064' },
-  { key: 'upcoming_cases', label: 'Upcoming', emoji: '📅', color: '#E3F2FD', num: C.blue },
-  { key: 'today_earnings', label: "Today's Earnings", emoji: '💰', color: '#FFF8E1', num: C.warning, money: true },
-  { key: 'total_earnings', label: 'Total Earnings', emoji: '📈', color: '#F3E5F5', num: '#6A1B9A', money: true },
-  { key: 'pending_payments', label: 'Outstanding', emoji: '💳', color: '#FBE9E7', num: C.error, money: true },
-  { key: 'total_cases', label: 'Total Cases', emoji: '📋', color: '#E0F2F1', num: '#004D40' },
+  { key: 'today_cases', label: "Today's Cases", emoji: '🩺', color: '#E0F2F1', num: '#006064', route: '/(tabs)/cases', routeParam: 'today' },
+  { key: 'upcoming_cases', label: 'Upcoming', emoji: '📅', color: '#E3F2FD', num: C.blue, route: '/(tabs)/cases', routeParam: 'upcoming' },
+  { key: 'today_earnings', label: "Today's Earnings", emoji: '💰', color: '#FFF8E1', num: C.warning, money: true, route: '/(tabs)/reports', routeParam: 'earnings' },
+  { key: 'total_earnings', label: 'Total Earnings', emoji: '📈', color: '#F3E5F5', num: '#6A1B9A', money: true, route: '/(tabs)/reports', routeParam: 'earnings' },
+  { key: 'pending_payments', label: 'Outstanding', emoji: '💳', color: '#FBE9E7', num: C.error, money: true, route: '/(tabs)/ledger' },
+  { key: 'total_cases', label: 'Total Cases', emoji: '📋', color: '#E0F2F1', num: '#004D40', route: '/(tabs)/cases', routeParam: 'closed' },
 ];
 
 export default function DashboardScreen() {
@@ -465,13 +465,28 @@ export default function DashboardScreen() {
         ) : (
           <View style={styles.grid} testID="stats-grid">
             {STAT_CARDS.map(card => (
-              <View key={card.key} testID={`stat-${card.key}`} style={[styles.card, { backgroundColor: card.color }]}>
+              <TouchableOpacity
+                key={card.key}
+                testID={`stat-${card.key}`}
+                style={[styles.card, { backgroundColor: card.color }]}
+                activeOpacity={0.78}
+                onPress={() => {
+                  if (card.route === '/(tabs)/cases' && card.routeParam) {
+                    router.push({ pathname: '/(tabs)/cases', params: { tab: card.routeParam } });
+                  } else if (card.route === '/(tabs)/reports' && card.routeParam) {
+                    router.push({ pathname: '/(tabs)/reports', params: { tab: card.routeParam } });
+                  } else if (card.route) {
+                    router.push(card.route as any);
+                  }
+                }}
+              >
                 <View style={styles.emojiWrap}><Text style={{ fontSize: 14 }}>{card.emoji}</Text></View>
                 <Text style={[styles.statNum, { color: card.num }]}>
                   {stats ? fmt((stats as any)[card.key] || 0, card.money || false) : '--'}
                 </Text>
                 <Text style={styles.statLabel}>{card.label}</Text>
-              </View>
+                <Text style={[styles.cardArrow, { color: card.num }]}>→</Text>
+              </TouchableOpacity>
             ))}
           </View>
         )}
@@ -1031,6 +1046,7 @@ const styles = StyleSheet.create({
   emojiWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.7)', justifyContent: 'center', alignItems: 'center', marginBottom: 6 },
   statNum: { fontSize: 14, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', marginBottom: 2 },
   statLabel: { fontSize: 12, fontWeight: '500', fontFamily: 'Inter_500Medium', color: C.sub, lineHeight: 16 },
+  cardArrow: { fontFamily: 'Inter_700Bold', fontSize: 11, marginTop: 3, opacity: 0.5 },
   // Cases
   caseList: { paddingHorizontal: 16, gap: 10, marginBottom: 20 },
   caseCard: { backgroundColor: C.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: C.border, boxShadow: '0px 2px 10px rgba(0,96,100,0.07)' },

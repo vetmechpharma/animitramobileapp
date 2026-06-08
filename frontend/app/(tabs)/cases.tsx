@@ -4,7 +4,7 @@ import {
   TouchableOpacity, ActivityIndicator, RefreshControl,
   Alert, Modal, TextInput, Linking, Platform, ScrollView,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import DatePickerModal from '../../components/DatePicker';
@@ -56,7 +56,8 @@ const statusBadge = (c: Case) => {
 
 export default function CasesScreen() {
   const { token } = useAuth();
-  const [activeTab, setActiveTab] = useState('today');
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const [activeTab, setActiveTab] = useState(params.tab || 'today');
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
