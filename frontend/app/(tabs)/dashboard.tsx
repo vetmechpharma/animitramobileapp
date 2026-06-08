@@ -175,12 +175,14 @@ export default function DashboardScreen() {
       setAllVillages(vData.villages || []);
       setKnownFarmers(fData.farmers || []);
 
-      // Check clipboard for a phone number
+      // Check clipboard for an Indian phone number (handles +91, 91, 0 prefixes)
       try {
         const clip = await Clipboard.getStringAsync();
-        const digits = clip?.replace(/\D/g, '') || '';
-        if (digits.length === 10) {
-          setClipboardBanner(digits);
+        if (clip) {
+          const normalized = normalizeIndianMobile(clip);
+          if (normalized.length === 10) {
+            setClipboardBanner(normalized);
+          }
         }
       } catch (e) { /* clipboard permission denied on some devices */ }
     }
@@ -225,8 +227,21 @@ export default function DashboardScreen() {
     setGlobalSuggestion(null);
   };
 
+  // Smart Indian mobile number normalizer — handles all paste formats
+  const normalizeIndianMobile = (raw: string): string => {
+    // Step 1: Remove all non-digit characters (+, spaces, hyphens, brackets etc.)
+    let digits = raw.replace(/\D/g, '');
+    // Step 2: Strip country code prefixes
+    if (digits.length === 13 && digits.startsWith('091')) digits = digits.slice(3);   // 091XXXXXXXXXX
+    else if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2); // 91XXXXXXXXXX
+    else if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1); // 0XXXXXXXXXX
+    // Step 3: If still >10 digits, take the last 10 (most reliable for all formats)
+    if (digits.length > 10) digits = digits.slice(-10);
+    return digits.slice(0, 10);
+  };
+
   const handleMobileChange = (v: string) => {
-    const digits = v.replace(/\D/g, '').slice(0, 10);
+    const digits = normalizeIndianMobile(v);
     setQuickForm(f => ({ ...f, mobile: digits }));
     setAutoFilledBanner('');
     setGlobalSuggestion(null);
@@ -799,7 +814,7 @@ export default function DashboardScreen() {
             <FlatList data={filteredContacts} keyExtractor={(_, i) => `${i}`}
               renderItem={({ item }) => (
                 <TouchableOpacity style={styles.contactItem} onPress={() => {
-                  const digits = item.phone.replace(/\D/g, '').slice(-10);
+                  const digits = normalizeIndianMobile(item.phone);
                   setQuickForm(f => ({ ...f, owner_name: item.name, mobile: digits }));
                   setShowContactPicker(false);
                   setContactSearch('');
