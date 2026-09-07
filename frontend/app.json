@@ -2,7 +2,7 @@
   "expo": {
     "name": "ANIMitra VET",
     "slug": "animitrabet",
-    "version": "1.3.0",
+    "version": "1.8.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "animitra",
@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "com.vetmechpharma.animitra",
-      "versionCode": 4,
+      "versionCode": 8,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000000"
