@@ -56,6 +56,14 @@ const statusBadge = (c: Case) => {
 
 export default function CasesScreen() {
   const { token } = useAuth();
+
+  // Use local date components — toISOString() shifts timezone (IST midnight → UTC yesterday)
+  const toLocalDateStr = (date: Date): string => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
   const params = useLocalSearchParams<{ tab?: string }>();
   const [activeTab, setActiveTab] = useState(params.tab || 'today');
   const [cases, setCases] = useState<Case[]>([]);
@@ -187,7 +195,7 @@ export default function CasesScreen() {
           payment_status: treatment_status === 'treated' ? payment_status : 'not_applicable',
           payment_mode: payment_status !== 'not_paid' ? payment_mode : null,
           paid_amount: payment_status === 'partial' ? parseFloat(paid_amount) || 0 : (payment_status === 'full' ? parseFloat(amount) || 0 : 0),
-          follow_up_date: showFollowUp ? followUpDate.toISOString().split('T')[0] : null,
+          follow_up_date: showFollowUp ? toLocalDateStr(followUpDate) : null,
           follow_up_reason: showFollowUp ? followUpReason.trim() || 'Follow-up' : '',
           case_details: caseDetails.trim(),
         }),

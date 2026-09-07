@@ -71,6 +71,14 @@ const STAT_CARDS = [
 export default function DashboardScreen() {
   const router = useRouter();
   const { user, token, logout, isLoading: authLoading } = useAuth();
+
+  // Use local date components — toISOString() shifts timezone (IST midnight → UTC yesterday)
+  const toLocalDateStr = (date: Date): string => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
   const [stats, setStats] = useState<any>(null);
   const [todayCases, setTodayCases] = useState<Case[]>([]);
   const [upcomingCases, setUpcomingCases] = useState<Case[]>([]);
@@ -316,7 +324,7 @@ export default function DashboardScreen() {
     }
     setQuickSaving(true);
     try {
-      const visitDateStr = visitDate.toISOString().split('T')[0];
+      const visitDateStr = toLocalDateStr(visitDate);
       const res = await fetch(`${BACKEND_URL}/api/cases/quick-add`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -371,7 +379,7 @@ export default function DashboardScreen() {
     }
     setCloseSaving(true);
     try {
-      const fuStr = showFollowUp ? followUpDate.toISOString().split('T')[0] : null;
+      const fuStr = showFollowUp ? toLocalDateStr(followUpDate) : null;
       const res = await fetch(`${BACKEND_URL}/api/cases/${closeCase.id}/close`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
