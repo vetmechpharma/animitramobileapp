@@ -197,16 +197,32 @@ export default function DashboardScreen() {
   const checkAndAutoFillFarmer = async (mobile: string) => {
     if (mobile.length !== 10) return;
 
-    // 1. Check vet-specific known farmers first
+    // 1. Check cached known farmers (fast, in-memory)
     const match = knownFarmers.find(f => f.mobile === mobile);
     if (match) {
       setQuickForm(f => ({ ...f, mobile, owner_name: match.owner_name, village_name: match.village_name || f.village_name }));
-      setAutoFilledBanner(`✅ Your previous client: ${match.owner_name}${match.village_name ? ` · ${match.village_name}` : ''} (${match.case_count} visit${match.case_count > 1 ? 's' : ''})`);
+      setAutoFilledBanner(`✅ Previous client: ${match.owner_name}${match.village_name ? ` · ${match.village_name}` : ''} (${match.case_count} visit${match.case_count > 1 ? 's' : ''})`);
       setShowFarmerSug(false);
       return;
     }
 
-    // 2. Cross-vet global suggestion
+    // 2. Direct API lookup by exact mobile — finds ALL farmers regardless of age
+    if (token) {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/cases/farmer-lookup?q=${mobile}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.farmers?.length > 0) {
+          const farmer = data.farmers[0];
+          setAutoFilledBanner(`✅ Previous client: ${farmer.owner_name}${farmer.village_name ? ` · ${farmer.village_name}` : ''} (${farmer.case_count} visit${farmer.case_count > 1 ? 's' : ''})`);
+          setGlobalSuggestion({ name: farmer.owner_name, village: farmer.village_name || '' });
+          return;
+        }
+      } catch (e) { /* silent */ }
+    }
+
+    // 3. Cross-vet global suggestion
     if (token) {
       try {
         const res = await fetch(`${BACKEND_URL}/api/farmer-suggest?mobile=${mobile}`, {
@@ -216,8 +232,7 @@ export default function DashboardScreen() {
         if (data.names?.length > 0) {
           const sugName = data.names[0];
           const sugVillage = data.villages?.[0] || '';
-          setAutoFilledBanner(`💡 Known as: ${sugName}${sugVillage ? ` · ${sugVillage}` : ''} — Tap to use or type your own`);
-          // Store suggestion for easy apply
+          setAutoFilledBanner(`💡 Known as: ${sugName}${sugVillage ? ` · ${sugVillage}` : ''} — Tap to use`);
           setGlobalSuggestion({ name: sugName, village: sugVillage });
           return;
         }

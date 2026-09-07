@@ -481,13 +481,14 @@ async def daily_summary(user=Depends(get_current_user)):
 
 @api_router.get("/cases/farmer-lookup")
 async def farmer_lookup(q: str = "", user=Depends(get_current_user)):
-    """Return distinct known farmers for this vet (by name or mobile search)."""
-    base_query: dict = {"vet_id": user["id"]}
+    """Return ALL distinct farmers for this vet (no limit — needed for old phone number lookup)."""
+    base_query: dict = {"vet_id": user["id"], "is_opening_balance": {"$ne": True}}
     if q:
-        base_query["$or"] = [
-            {"mobile": {"$regex": q, "$options": "i"}},
-            {"owner_name": {"$regex": q, "$options": "i"}},
-        ]
+        if q.isdigit():
+            # Exact or partial mobile match — search ALL, no limit
+            base_query["mobile"] = {"$regex": f"^{q}" if len(q) == 10 else q}
+        else:
+            base_query["owner_name"] = {"$regex": q, "$options": "i"}
     pipeline = [
         {"$match": base_query},
         {"$sort": {"created_at": -1}},
@@ -500,9 +501,9 @@ async def farmer_lookup(q: str = "", user=Depends(get_current_user)):
             "last_visit": {"$first": "$created_at"},
         }},
         {"$sort": {"last_visit": -1}},
-        {"$limit": 8},
+        # No $limit — return ALL farmers for the vet so old ones are always found
     ]
-    results = await db.cases.aggregate(pipeline).to_list(8)
+    results = await db.cases.aggregate(pipeline).to_list(5000)
     farmers = [
         {
             "owner_name": r["owner_name"],
@@ -648,7 +649,8 @@ async def pending_cases(user=Depends(get_current_user)):
     return {"cases": [fmt_case(c) async for c in cursor]}
 
 @api_router.get("/cases/closed")
-async def closed_cases(user=Depends(get_current_user), skip: int = 0, limit: int = 50):
+async def closed_cases(user=Depends(get_current_user), skip: int = 0, limit: int = 200):
+    """Returns closed+forwarded cases, up to 200 per page."""
     q = {"vet_id": user["id"], "status": {"$in": ["closed", "forwarded"]}, "is_opening_balance": {"$ne": True}}
     cursor = db.cases.find(q).sort("updated_at", -1).skip(skip).limit(limit)
     total = await db.cases.count_documents(q)
